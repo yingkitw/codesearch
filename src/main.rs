@@ -53,6 +53,9 @@ enum Commands {
         /// Exclude directories (e.g., target,node_modules)
         #[arg(long, value_delimiter = ',')]
         exclude: Option<Vec<String>>,
+        /// Sort results by relevance score
+        #[arg(long)]
+        rank: bool,
     },
     /// List all searchable files
     Files {
@@ -90,17 +93,52 @@ enum Commands {
         #[arg(long, value_delimiter = ',')]
         exclude: Option<Vec<String>>,
     },
+    /// Suggest code refactoring improvements
+    Refactor {
+        /// Directory to analyze (default: current directory)
+        #[arg(short, long, default_value = ".")]
+        path: PathBuf,
+        /// File extensions to include (e.g., rs,py,js)
+        #[arg(short, long, value_delimiter = ',')]
+        extensions: Option<Vec<String>>,
+        /// Exclude directories (e.g., target,node_modules)
+        #[arg(long, value_delimiter = ',')]
+        exclude: Option<Vec<String>>,
+        /// Show only high-priority suggestions
+        #[arg(long)]
+        high_priority: bool,
+    },
+    /// Manage search favorites and history
+    Favorites {
+        /// List all favorites
+        #[arg(long)]
+        list: bool,
+        /// Add current search to favorites
+        #[arg(long)]
+        add: Option<String>,
+        /// Remove a favorite by name
+        #[arg(long)]
+        remove: Option<String>,
+        /// Clear all favorites
+        #[arg(long)]
+        clear: bool,
+        /// Show search history
+        #[arg(long)]
+        history: bool,
+    },
 }
 
-#[derive(Debug, serde::Serialize)]
+#[derive(Debug, Clone, serde::Serialize)]
 struct SearchResult {
     file: String,
     line_number: usize,
     content: String,
     matches: Vec<Match>,
+    score: f64,
+    relevance: String,
 }
 
-#[derive(Debug, serde::Serialize)]
+#[derive(Debug, Clone, serde::Serialize)]
 struct Match {
     start: usize,
     end: usize,
@@ -130,6 +168,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             fuzzy,
             fuzzy_threshold,
             exclude,
+            rank,
         } => {
             let results = search_code(
                 &query,
@@ -140,6 +179,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 fuzzy_threshold,
                 max_results,
                 exclude.as_deref(),
+                rank,
             )?;
 
             match format.as_str() {
@@ -148,7 +188,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                     println!("{}", json);
                 }
                 _ => {
-                    print_results(&results, line_numbers);
+                    print_results(&results, line_numbers, rank);
                     if stats {
                         print_search_stats(&results, &query);
                     }
@@ -187,8 +227,473 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         } => {
             analyze_codebase(&path, extensions.as_deref(), exclude.as_deref())?;
         }
+        Commands::Refactor {
+            path,
+            extensions,
+            exclude,
+            high_priority,
+        } => {
+            suggest_refactoring(&path, extensions.as_deref(), exclude.as_deref(), high_priority)?;
+        }
+        Commands::Favorites {
+            list,
+            add,
+            remove,
+            clear,
+            history,
+        } => {
+            manage_favorites(list, add, remove, clear, history)?;
+        }
     }
 
+    Ok(())
+}
+
+#[derive(Debug, Clone)]
+struct RefactorSuggestion {
+    file: String,
+    line_number: usize,
+    suggestion_type: String,
+    description: String,
+    priority: u8, // 1-10, 10 being highest priority
+    code_snippet: String,
+    improvement: String,
+}
+
+fn suggest_refactoring(
+    path: &Path,
+    extensions: Option<&[String]>,
+    exclude: Option<&[String]>,
+    high_priority_only: bool,
+) -> Result<(), Box<dyn std::error::Error>> {
+    println!("{}", "🔧 Code Refactoring Suggestions".cyan().bold());
+    println!("{}", "─".repeat(30).cyan());
+    println!();
+
+    let files = list_files(path, extensions, exclude)?;
+    let mut suggestions = Vec::new();
+
+    for file in &files {
+        if let Ok(content) = fs::read_to_string(&file.path) {
+            analyze_file_for_refactoring(&file.path, &content, &mut suggestions);
+        }
+    }
+
+    // Sort by priority (highest first)
+    suggestions.sort_by(|a, b| b.priority.cmp(&a.priority));
+
+    // Filter by priority if requested
+    let filtered_suggestions = if high_priority_only {
+        suggestions.into_iter().filter(|s| s.priority >= 7).collect::<Vec<_>>()
+    } else {
+        suggestions
+    };
+
+    if filtered_suggestions.is_empty() {
+        println!("{}", "✨ No refactoring suggestions found! Your code looks good.".green().italic());
+        return Ok(());
+    }
+
+    // Group suggestions by type
+    let mut grouped: std::collections::HashMap<String, Vec<&RefactorSuggestion>> = std::collections::HashMap::new();
+    for suggestion in &filtered_suggestions {
+        grouped.entry(suggestion.suggestion_type.clone()).or_insert_with(Vec::new).push(suggestion);
+    }
+
+    for (suggestion_type, type_suggestions) in grouped {
+        println!("{}", format!("📋 {} ({})", suggestion_type, type_suggestions.len()).yellow().bold());
+        println!("{}", "─".repeat(suggestion_type.len() + 15).yellow());
+        
+        for suggestion in type_suggestions {
+            let priority_color = match suggestion.priority {
+                8..=10 => "red".to_string(),
+                5..=7 => "yellow".to_string(),
+                _ => "green".to_string(),
+            };
+            
+            println!("  {} {} {}", 
+                format!("[{}]", suggestion.priority).color(priority_color).bold(),
+                suggestion.file.blue().bold(),
+                format!("line {}", suggestion.line_number).cyan()
+            );
+            println!("  {}", suggestion.description.italic());
+            println!("  {} {}", "Current:".dimmed(), suggestion.code_snippet.dimmed());
+            println!("  {} {}", "Better:".green(), suggestion.improvement.green());
+            println!();
+        }
+    }
+
+    println!("{}", format!("💡 Total suggestions: {}", filtered_suggestions.len()).cyan().bold());
+    println!("{}", "✨ Refactoring analysis completed!".green().italic());
+
+    Ok(())
+}
+
+fn analyze_file_for_refactoring(
+    file_path: &str,
+    content: &str,
+    suggestions: &mut Vec<RefactorSuggestion>,
+) {
+    let lines: Vec<&str> = content.lines().collect();
+    
+    for (line_num, line) in lines.iter().enumerate() {
+        let line_number = line_num + 1;
+        let trimmed = line.trim();
+        
+        // Check for long lines
+        if line.len() > 120 {
+            suggestions.push(RefactorSuggestion {
+                file: file_path.to_string(),
+                line_number,
+                suggestion_type: "Code Style".to_string(),
+                description: "Line is too long (>120 characters)".to_string(),
+                priority: 3,
+                code_snippet: if line.len() > 50 { format!("{}...", &line[..50]) } else { line.to_string() },
+                improvement: "Consider breaking into multiple lines or extracting variables".to_string(),
+            });
+        }
+        
+        // Check for deeply nested code
+        let indent_level = line.len() - line.trim_start().len();
+        if indent_level > 8 {
+            suggestions.push(RefactorSuggestion {
+                file: file_path.to_string(),
+                line_number,
+                suggestion_type: "Complexity".to_string(),
+                description: "Deeply nested code (indentation > 8 levels)".to_string(),
+                priority: 6,
+                code_snippet: trimmed.to_string(),
+                improvement: "Consider extracting functions or using early returns to reduce nesting".to_string(),
+            });
+        }
+        
+        // Check for TODO comments
+        if trimmed.to_uppercase().contains("TODO") || trimmed.to_uppercase().contains("FIXME") {
+            suggestions.push(RefactorSuggestion {
+                file: file_path.to_string(),
+                line_number,
+                suggestion_type: "Technical Debt".to_string(),
+                description: "TODO/FIXME comment found".to_string(),
+                priority: 5,
+                code_snippet: trimmed.to_string(),
+                improvement: "Address the TODO item or remove if no longer needed".to_string(),
+            });
+        }
+        
+        // Check for magic numbers
+        if regex::Regex::new(r"\b\d{3,}\b").unwrap().is_match(trimmed) {
+            suggestions.push(RefactorSuggestion {
+                file: file_path.to_string(),
+                line_number,
+                suggestion_type: "Code Quality".to_string(),
+                description: "Magic number detected (3+ digits)".to_string(),
+                priority: 4,
+                code_snippet: trimmed.to_string(),
+                improvement: "Replace with named constants or configuration values".to_string(),
+            });
+        }
+        
+        // Check for commented code
+        if trimmed.starts_with("//") && !trimmed.starts_with("///") && !trimmed.starts_with("//!") {
+            let code_part = trimmed.strip_prefix("//").unwrap().trim();
+            if code_part.len() > 10 && !code_part.starts_with(" ") {
+                suggestions.push(RefactorSuggestion {
+                    file: file_path.to_string(),
+                    line_number,
+                    suggestion_type: "Code Cleanup".to_string(),
+                    description: "Commented code found".to_string(),
+                    priority: 2,
+                    code_snippet: trimmed.to_string(),
+                    improvement: "Remove commented code or uncomment if still needed".to_string(),
+                });
+            }
+        }
+        
+        // Check for duplicate code patterns
+        if trimmed.contains("if") && trimmed.contains("else") && trimmed.len() > 50 {
+            suggestions.push(RefactorSuggestion {
+                file: file_path.to_string(),
+                line_number,
+                suggestion_type: "Code Quality".to_string(),
+                description: "Complex conditional statement".to_string(),
+                priority: 4,
+                code_snippet: if trimmed.len() > 50 { format!("{}...", &trimmed[..50]) } else { trimmed.to_string() },
+                improvement: "Consider extracting to a separate function or using guard clauses".to_string(),
+            });
+        }
+        
+        // Check for long function signatures
+        if trimmed.starts_with("fn ") || trimmed.starts_with("def ") || trimmed.starts_with("function ") {
+            if trimmed.len() > 80 {
+                suggestions.push(RefactorSuggestion {
+                    file: file_path.to_string(),
+                    line_number,
+                    suggestion_type: "Function Design".to_string(),
+                    description: "Long function signature".to_string(),
+                    priority: 5,
+                    code_snippet: if trimmed.len() > 50 { format!("{}...", &trimmed[..50]) } else { trimmed.to_string() },
+                    improvement: "Consider reducing parameters or using a configuration object".to_string(),
+                });
+            }
+        }
+        
+        // Check for hardcoded strings
+        if trimmed.contains("\"") && !trimmed.contains("println") && !trimmed.contains("print") {
+            let string_count = trimmed.matches("\"").count();
+            if string_count >= 2 && trimmed.len() > 30 {
+                suggestions.push(RefactorSuggestion {
+                    file: file_path.to_string(),
+                    line_number,
+                    suggestion_type: "Code Quality".to_string(),
+                    description: "Hardcoded string detected".to_string(),
+                    priority: 3,
+                    code_snippet: if trimmed.len() > 50 { format!("{}...", &trimmed[..50]) } else { trimmed.to_string() },
+                    improvement: "Consider using constants or configuration files for string values".to_string(),
+                });
+            }
+        }
+    }
+}
+
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+struct SearchFavorite {
+    name: String,
+    query: String,
+    path: String,
+    extensions: Option<Vec<String>>,
+    ignore_case: bool,
+    fuzzy: bool,
+    fuzzy_threshold: f64,
+    exclude: Option<Vec<String>>,
+    created_at: String,
+}
+
+fn manage_favorites(
+    list: bool,
+    add: Option<String>,
+    remove: Option<String>,
+    clear: bool,
+    history: bool,
+) -> Result<(), Box<dyn std::error::Error>> {
+    let favorites_file = std::env::var("HOME").unwrap_or_else(|_| ".".to_string()) + "/.code-search-favorites.json";
+    
+    if list {
+        list_favorites(&favorites_file)?;
+    } else if let Some(name) = add {
+        add_favorite(&favorites_file, &name)?;
+    } else if let Some(name) = remove {
+        remove_favorite(&favorites_file, &name)?;
+    } else if clear {
+        clear_favorites(&favorites_file)?;
+    } else if history {
+        show_search_history()?;
+    } else {
+        println!("{}", "Use --help to see available options".yellow());
+    }
+    
+    Ok(())
+}
+
+fn list_favorites(favorites_file: &str) -> Result<(), Box<dyn std::error::Error>> {
+    if !std::path::Path::new(favorites_file).exists() {
+        println!("{}", "No favorites found. Use --add to create your first favorite!".yellow());
+        return Ok(());
+    }
+    
+    let content = fs::read_to_string(favorites_file)?;
+    let favorites: Vec<SearchFavorite> = serde_json::from_str(&content)?;
+    
+    if favorites.is_empty() {
+        println!("{}", "No favorites found. Use --add to create your first favorite!".yellow());
+        return Ok(());
+    }
+    
+    println!("{}", "⭐ Search Favorites".cyan().bold());
+    println!("{}", "─".repeat(20).cyan());
+    println!();
+    
+    for (i, favorite) in favorites.iter().enumerate() {
+        println!("{} {}", format!("{}.", i + 1).green().bold(), favorite.name.blue().bold());
+        println!("  Query: {}", favorite.query.italic());
+        println!("  Path: {}", favorite.path.dimmed());
+        if let Some(exts) = &favorite.extensions {
+            println!("  Extensions: {}", exts.join(", ").cyan());
+        }
+        if favorite.ignore_case {
+            println!("  Case-insensitive: {}", "Yes".green());
+        }
+        if favorite.fuzzy {
+            println!("  Fuzzy search: {} (threshold: {})", "Yes".green(), favorite.fuzzy_threshold);
+        }
+        if let Some(excl) = &favorite.exclude {
+            println!("  Exclude: {}", excl.join(", ").red());
+        }
+        println!("  Created: {}", favorite.created_at.dimmed());
+        println!();
+    }
+    
+    Ok(())
+}
+
+fn add_favorite(favorites_file: &str, name: &str) -> Result<(), Box<dyn std::error::Error>> {
+    println!("{}", "Adding new favorite...".cyan().bold());
+    println!("{}", "Enter search details:".yellow());
+    
+    use std::io::{self, Write};
+    
+    print!("Query: ");
+    io::stdout().flush()?;
+    let mut query = String::new();
+    io::stdin().read_line(&mut query)?;
+    let query = query.trim().to_string();
+    
+    print!("Path (default: .): ");
+    io::stdout().flush()?;
+    let mut path = String::new();
+    io::stdin().read_line(&mut path)?;
+    let path = if path.trim().is_empty() { "." } else { path.trim() }.to_string();
+    
+    print!("Extensions (comma-separated, optional): ");
+    io::stdout().flush()?;
+    let mut extensions = String::new();
+    io::stdin().read_line(&mut extensions)?;
+    let extensions = if extensions.trim().is_empty() {
+        None
+    } else {
+        Some(extensions.trim().split(',').map(|s| s.trim().to_string()).collect())
+    };
+    
+    print!("Case-insensitive? (y/N): ");
+    io::stdout().flush()?;
+    let mut ignore_case = String::new();
+    io::stdin().read_line(&mut ignore_case)?;
+    let ignore_case = ignore_case.trim().to_lowercase() == "y";
+    
+    print!("Fuzzy search? (y/N): ");
+    io::stdout().flush()?;
+    let mut fuzzy = String::new();
+    io::stdin().read_line(&mut fuzzy)?;
+    let fuzzy = fuzzy.trim().to_lowercase() == "y";
+    
+    let fuzzy_threshold = if fuzzy {
+        print!("Fuzzy threshold (0.0-1.0, default: 0.6): ");
+        io::stdout().flush()?;
+        let mut threshold = String::new();
+        io::stdin().read_line(&mut threshold)?;
+        threshold.trim().parse().unwrap_or(0.6)
+    } else {
+        0.6
+    };
+    
+    print!("Exclude directories (comma-separated, optional): ");
+    io::stdout().flush()?;
+    let mut exclude = String::new();
+    io::stdin().read_line(&mut exclude)?;
+    let exclude = if exclude.trim().is_empty() {
+        None
+    } else {
+        Some(exclude.trim().split(',').map(|s| s.trim().to_string()).collect())
+    };
+    
+    let favorite = SearchFavorite {
+        name: name.to_string(),
+        query,
+        path,
+        extensions,
+        ignore_case,
+        fuzzy,
+        fuzzy_threshold,
+        exclude,
+        created_at: chrono::Utc::now().format("%Y-%m-%d %H:%M:%S").to_string(),
+    };
+    
+    let mut favorites = if std::path::Path::new(favorites_file).exists() {
+        let content = fs::read_to_string(favorites_file)?;
+        serde_json::from_str(&content).unwrap_or_else(|_| Vec::new())
+    } else {
+        Vec::new()
+    };
+    
+    // Check if name already exists
+    if favorites.iter().any(|f: &SearchFavorite| f.name == name) {
+        println!("{}", format!("Favorite '{}' already exists!", name).red());
+        return Ok(());
+    }
+    
+    favorites.push(favorite);
+    
+    // Ensure directory exists
+    if let Some(parent) = std::path::Path::new(favorites_file).parent() {
+        fs::create_dir_all(parent)?;
+    }
+    
+    let json = serde_json::to_string_pretty(&favorites)?;
+    fs::write(favorites_file, json)?;
+    
+    println!("{}", format!("✅ Favorite '{}' added successfully!", name).green());
+    
+    Ok(())
+}
+
+fn remove_favorite(favorites_file: &str, name: &str) -> Result<(), Box<dyn std::error::Error>> {
+    if !std::path::Path::new(favorites_file).exists() {
+        println!("{}", "No favorites file found.".yellow());
+        return Ok(());
+    }
+    
+    let content = fs::read_to_string(favorites_file)?;
+    let mut favorites: Vec<SearchFavorite> = serde_json::from_str(&content)?;
+    
+    let original_len = favorites.len();
+    favorites.retain(|f| f.name != name);
+    
+    if favorites.len() == original_len {
+        println!("{}", format!("Favorite '{}' not found.", name).yellow());
+        return Ok(());
+    }
+    
+    let json = serde_json::to_string_pretty(&favorites)?;
+    fs::write(favorites_file, json)?;
+    
+    println!("{}", format!("✅ Favorite '{}' removed successfully!", name).green());
+    
+    Ok(())
+}
+
+fn clear_favorites(favorites_file: &str) -> Result<(), Box<dyn std::error::Error>> {
+    if std::path::Path::new(favorites_file).exists() {
+        fs::remove_file(favorites_file)?;
+    }
+    
+    println!("{}", "✅ All favorites cleared!".green());
+    
+    Ok(())
+}
+
+fn show_search_history() -> Result<(), Box<dyn std::error::Error>> {
+    let history_file = std::env::var("HOME").unwrap_or_else(|_| ".".to_string()) + "/.code-search-history.json";
+    
+    if !std::path::Path::new(&history_file).exists() {
+        println!("{}", "No search history found.".yellow());
+        return Ok(());
+    }
+    
+    let content = fs::read_to_string(&history_file)?;
+    let history: Vec<String> = serde_json::from_str(&content)?;
+    
+    if history.is_empty() {
+        println!("{}", "No search history found.".yellow());
+        return Ok(());
+    }
+    
+    println!("{}", "📚 Search History".cyan().bold());
+    println!("{}", "─".repeat(20).cyan());
+    println!();
+    
+    for (i, query) in history.iter().enumerate() {
+        println!("{} {}", format!("{}.", i + 1).green().bold(), query.blue());
+    }
+    
     Ok(())
 }
 
@@ -201,6 +706,7 @@ fn search_code(
     fuzzy_threshold: f64,
     max_results: usize,
     exclude: Option<&[String]>,
+    rank: bool,
 ) -> Result<Vec<SearchResult>, Box<dyn std::error::Error>> {
     let mut results = Vec::new();
     
@@ -253,7 +759,83 @@ fn search_code(
         }
     }
 
+    // Sort results by relevance score if ranking is enabled
+    if rank {
+        results.sort_by(|a, b| b.score.partial_cmp(&a.score).unwrap_or(std::cmp::Ordering::Equal));
+    }
+
     Ok(results)
+}
+
+fn calculate_relevance_score(
+    content: &str,
+    query: &str,
+    line_number: usize,
+    file_path: &Path,
+    fuzzy: bool,
+    fuzzy_score: Option<i64>,
+) -> (f64, String) {
+    let mut score = 0.0;
+    let mut relevance_factors = Vec::new();
+
+    // Base score from fuzzy matching or exact matching
+    if fuzzy {
+        if let Some(fs) = fuzzy_score {
+            score += fs as f64 / 100.0; // Normalize fuzzy score
+            relevance_factors.push("fuzzy match".to_string());
+        }
+    } else {
+        score += 1.0; // Exact match
+        relevance_factors.push("exact match".to_string());
+    }
+
+    // Boost for function/class definitions
+    if regex::Regex::new(r"^(fn|def|function|class|interface|struct|enum)\s+").unwrap().is_match(content.trim()) {
+        score += 0.3;
+        relevance_factors.push("definition".to_string());
+    }
+
+    // Boost for comments and documentation
+    if regex::Regex::new(r"^\s*(//|#|/\*|\*|///|//!)").unwrap().is_match(content.trim()) {
+        score += 0.2;
+        relevance_factors.push("documentation".to_string());
+    }
+
+    // Boost for early lines in file (likely more important)
+    if line_number <= 50 {
+        score += 0.1;
+        relevance_factors.push("early in file".to_string());
+    }
+
+    // Boost for specific file types
+    if let Some(ext) = file_path.extension() {
+        match ext.to_str().unwrap() {
+            "rs" | "py" | "js" | "ts" | "go" | "java" => {
+                score += 0.1;
+                relevance_factors.push("source code".to_string());
+            }
+            _ => {}
+        }
+    }
+
+    // Boost for multiple matches in the same line
+    let match_count = content.matches(query).count();
+    if match_count > 1 {
+        score += 0.1 * match_count as f64;
+        relevance_factors.push(format!("{} matches", match_count));
+    }
+
+    // Boost for complete word matches
+    if regex::Regex::new(&format!(r"\b{}\b", regex::escape(query))).unwrap().is_match(content) {
+        score += 0.2;
+        relevance_factors.push("whole word".to_string());
+    }
+
+    // Normalize score to 0-1 range
+    let normalized_score = (score / 2.0).min(1.0);
+    let relevance = relevance_factors.join(", ");
+
+    (normalized_score, relevance)
 }
 
 fn search_in_file(
@@ -280,32 +862,43 @@ fn search_in_file(
 
         if fuzzy {
             // Use fuzzy matching
-            if let Some((score, indices)) = matcher.fuzzy_indices(&line, query) {
-                if score as f64 >= fuzzy_threshold {
-                    let mut matches = Vec::new();
-                    let mut last_end = 0;
-                    
-                    for &idx in &indices {
-                        if idx >= last_end {
-                            let start = idx;
-                            let end = idx + 1;
-                            matches.push(Match {
-                                start,
-                                end,
-                                text: line.chars().nth(idx).unwrap().to_string(),
-                            });
-                            last_end = end;
+                if let Some((score, indices)) = matcher.fuzzy_indices(&line, query) {
+                    if score as f64 >= fuzzy_threshold {
+                        let mut matches = Vec::new();
+                        let mut last_end = 0;
+                        
+                        for &idx in &indices {
+                            if idx >= last_end {
+                                let start = idx;
+                                let end = idx + 1;
+                                matches.push(Match {
+                                    start,
+                                    end,
+                                    text: line.chars().nth(idx).unwrap().to_string(),
+                                });
+                                last_end = end;
+                            }
                         }
-                    }
 
-                    results.push(SearchResult {
-                        file: file_path.to_string_lossy().to_string(),
-                        line_number: line_count,
-                        content: line.clone(),
-                        matches,
-                    });
+                        let (relevance_score, relevance) = calculate_relevance_score(
+                            &line,
+                            query,
+                            line_count,
+                            file_path,
+                            true,
+                            Some(score),
+                        );
+
+                        results.push(SearchResult {
+                            file: file_path.to_string_lossy().to_string(),
+                            line_number: line_count,
+                            content: line.clone(),
+                            matches,
+                            score: relevance_score,
+                            relevance,
+                        });
+                    }
                 }
-            }
         } else {
             // Use regex matching
             for mat in regex.find_iter(&line) {
@@ -316,11 +909,22 @@ fn search_in_file(
                     text: mat.as_str().to_string(),
                 });
 
+                let (relevance_score, relevance) = calculate_relevance_score(
+                    &line,
+                    query,
+                    line_count,
+                    file_path,
+                    false,
+                    None,
+                );
+
                 results.push(SearchResult {
                     file: file_path.to_string_lossy().to_string(),
                     line_number: line_count,
                     content: line.clone(),
                     matches,
+                    score: relevance_score,
+                    relevance,
                 });
             }
         }
@@ -386,7 +990,7 @@ fn count_lines(file_path: &Path) -> Result<usize, Box<dyn std::error::Error>> {
     Ok(reader.lines().count())
 }
 
-fn print_results(results: &[SearchResult], line_numbers: bool) {
+fn print_results(results: &[SearchResult], line_numbers: bool, show_ranking: bool) {
     if results.is_empty() {
         println!("{}", "No matches found.".yellow());
         return;
@@ -428,11 +1032,18 @@ fn print_results(results: &[SearchResult], line_numbers: bool) {
             content = content.replace(&mat.text, &highlighted);
         }
 
+        // Add ranking information if enabled
+        let ranking_info = if show_ranking {
+            format!(" [{:.2}] {}", result.score, result.relevance.cyan().italic())
+        } else {
+            String::new()
+        };
+
         // Add indentation for better readability
         let indented_content = if line_numbers {
-            format!("  {}{}", line_info, content)
+            format!("  {}{}{}", line_info, content, ranking_info)
         } else {
-            format!("  {}", content)
+            format!("  {}{}", content, ranking_info)
         };
 
         println!("{}", indented_content);
@@ -614,12 +1225,13 @@ fn interactive_search(
                     0.6,   // fuzzy_threshold
                     20,    // max_results
                     current_exclude.as_deref(),
+                    false, // rank
                 )?;
 
                 if results.is_empty() {
                     println!("{}", "No matches found.".yellow());
                 } else {
-                    print_results(&results, true);
+                    print_results(&results, true, false);
                     print_search_stats(&results, query);
                 }
                 println!();
@@ -834,6 +1446,7 @@ mod tests {
             0.6,
             10,
             None,
+            false,
         ).unwrap();
         
         assert!(!results.is_empty());
@@ -855,6 +1468,7 @@ mod tests {
             0.6,
             10,
             None,
+            false,
         ).unwrap();
         
         assert!(!results.is_empty());
@@ -873,6 +1487,7 @@ mod tests {
             0.6,
             10,
             None,
+            false,
         ).unwrap();
         
         assert!(!results.is_empty());
@@ -891,6 +1506,7 @@ mod tests {
             0.6,
             10,
             None,
+            false,
         ).unwrap();
         
         assert!(!results.is_empty());
