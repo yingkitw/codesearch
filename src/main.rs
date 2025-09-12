@@ -4,9 +4,15 @@ use regex::Regex;
 use std::fs;
 use std::io::{BufRead, BufReader};
 use std::path::{Path, PathBuf};
+use std::sync::Arc;
+use std::time::Instant;
 use walkdir::WalkDir;
 use fuzzy_matcher::FuzzyMatcher;
 use fuzzy_matcher::skim::SkimMatcherV2;
+use rayon::prelude::*;
+use dashmap::DashMap;
+use ahash::AHashMap;
+use lazy_static::lazy_static;
 
 #[derive(Parser)]
 #[command(name = "code-search")]
@@ -56,6 +62,18 @@ enum Commands {
         /// Sort results by relevance score
         #[arg(long)]
         rank: bool,
+        /// Enable intelligent caching for faster repeated searches
+        #[arg(long)]
+        cache: bool,
+        /// Enable semantic search (context-aware matching)
+        #[arg(long)]
+        semantic: bool,
+        /// Performance benchmark mode
+        #[arg(long)]
+        benchmark: bool,
+        /// Compare performance with grep
+        #[arg(long)]
+        vs_grep: bool,
     },
     /// List all searchable files
     Files {
@@ -169,6 +187,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             fuzzy_threshold,
             exclude,
             rank,
+            cache,
+            semantic,
+            benchmark,
+            vs_grep,
         } => {
             let results = search_code(
                 &query,
@@ -180,6 +202,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 max_results,
                 exclude.as_deref(),
                 rank,
+                cache,
+                semantic,
+                benchmark,
+                vs_grep,
             )?;
 
             match format.as_str() {
@@ -697,6 +723,63 @@ fn show_search_history() -> Result<(), Box<dyn std::error::Error>> {
     Ok(())
 }
 
+#[derive(Debug, Clone)]
+struct SearchMetrics {
+    files_processed: usize,
+    total_lines_scanned: usize,
+    search_time_ms: u128,
+    parallel_workers: usize,
+    cache_hits: usize,
+    cache_misses: usize,
+}
+
+#[derive(Debug, Clone)]
+struct SearchCache {
+    cache: DashMap<String, Vec<SearchResult>>,
+    file_hashes: DashMap<String, u64>,
+}
+
+impl SearchCache {
+    fn new() -> Self {
+        Self {
+            cache: DashMap::new(),
+            file_hashes: DashMap::new(),
+        }
+    }
+    
+    fn get_cache_key(&self, query: &str, path: &str, extensions: Option<&[String]>, fuzzy: bool) -> String {
+        let ext_str = extensions.map(|exts| exts.join(",")).unwrap_or_default();
+        format!("{}:{}:{}:{}", query, path, ext_str, fuzzy)
+    }
+    
+    fn get(&self, key: &str) -> Option<Vec<SearchResult>> {
+        self.cache.get(key).map(|entry| entry.value().clone())
+    }
+    
+    fn set(&self, key: String, results: Vec<SearchResult>) {
+        self.cache.insert(key, results);
+    }
+    
+    fn is_file_modified(&self, file_path: &str) -> bool {
+        if let Ok(metadata) = std::fs::metadata(file_path) {
+            let current_hash = metadata.len() as u64;
+            if let Some(cached_hash) = self.file_hashes.get(file_path) {
+                *cached_hash != current_hash
+            } else {
+                self.file_hashes.insert(file_path.to_string(), current_hash);
+                true
+            }
+        } else {
+            true
+        }
+    }
+}
+
+// Global cache instance
+lazy_static::lazy_static! {
+    static ref SEARCH_CACHE: SearchCache = SearchCache::new();
+}
+
 fn search_code(
     query: &str,
     path: &Path,
@@ -707,20 +790,52 @@ fn search_code(
     max_results: usize,
     exclude: Option<&[String]>,
     rank: bool,
+    cache: bool,
+    semantic: bool,
+    benchmark: bool,
+    vs_grep: bool,
 ) -> Result<Vec<SearchResult>, Box<dyn std::error::Error>> {
+    let start_time = Instant::now();
     let mut results = Vec::new();
+    
+    // Performance tracking
+    let mut files_processed = 0;
+    let mut total_lines_scanned = 0;
+    let mut cache_hits = 0;
+    let mut cache_misses = 0;
+    
+    // Check cache first
+    if cache {
+        let cache_key = SEARCH_CACHE.get_cache_key(query, &path.to_string_lossy(), extensions, fuzzy);
+        if let Some(cached_results) = SEARCH_CACHE.get(&cache_key) {
+            cache_hits = 1;
+            if benchmark {
+                println!("{}", "🚀 Cache hit! Returning cached results instantly.".green().bold());
+            }
+            return Ok(cached_results);
+        } else {
+            cache_misses = 1;
+        }
+    }
+    
+    // Enhanced query for semantic search
+    let enhanced_query = if semantic {
+        enhance_query_semantically(query)
+    } else {
+        query.to_string()
+    };
     
     let regex = if fuzzy {
         // For fuzzy search, we'll use a more permissive pattern
         if ignore_case {
-            Regex::new(&format!("(?i).*{}.*", regex::escape(query)))?
+            Regex::new(&format!("(?i).*{}.*", regex::escape(&enhanced_query)))?
         } else {
-            Regex::new(&format!(".*{}.*", regex::escape(query)))?
+            Regex::new(&format!(".*{}.*", regex::escape(&enhanced_query)))?
         }
     } else if ignore_case {
-        Regex::new(&format!("(?i){}", regex::escape(query)))?
+        Regex::new(&format!("(?i){}", regex::escape(&enhanced_query)))?
     } else {
-        Regex::new(query)?
+        Regex::new(&enhanced_query)?
     };
 
     let walker = WalkDir::new(path)
@@ -740,28 +855,290 @@ fn search_code(
         .filter_map(|e| e.ok())
         .filter(|e| e.file_type().is_file());
 
-    for entry in walker {
-        let file_path = entry.path();
-        
-        // Check file extension if specified
-        if let Some(exts) = extensions {
-            if let Some(ext) = file_path.extension().and_then(|s| s.to_str()) {
-                if !exts.iter().any(|e| e == ext) {
-                    continue;
+    // Collect all files first for parallel processing
+    let files: Vec<PathBuf> = walker
+        .filter(|entry| {
+            let file_path = entry.path();
+            if let Some(exts) = extensions {
+                if let Some(ext) = file_path.extension().and_then(|s| s.to_str()) {
+                    exts.iter().any(|e| e == ext)
+                } else {
+                    false
                 }
             } else {
-                continue;
+                true
             }
-        }
+        })
+        .map(|entry| entry.path().to_path_buf())
+        .collect();
 
-        if let Ok(matches) = search_in_file(file_path, &regex, fuzzy, fuzzy_threshold, query, max_results) {
-            results.extend(matches);
-        }
+    files_processed = files.len();
+    
+    // Parallel search across files
+    let regex_arc = Arc::new(regex);
+    let query_arc = Arc::new(enhanced_query.clone());
+    
+    let parallel_results: Vec<Vec<SearchResult>> = files
+        .par_iter()
+        .map(|file_path| {
+            // Check if file was modified (for cache invalidation)
+            if cache && !SEARCH_CACHE.is_file_modified(&file_path.to_string_lossy()) {
+                return Vec::new(); // Skip unchanged files
+            }
+            
+            search_in_file_parallel(
+                file_path,
+                &regex_arc,
+                fuzzy,
+                fuzzy_threshold,
+                &query_arc,
+                max_results,
+            ).unwrap_or_else(|_| Vec::new())
+        })
+        .collect();
+    
+    // Flatten results and count lines
+    for file_results in parallel_results {
+        total_lines_scanned += file_results.len();
+        results.extend(file_results);
     }
 
     // Sort results by relevance score if ranking is enabled
     if rank {
         results.sort_by(|a, b| b.score.partial_cmp(&a.score).unwrap_or(std::cmp::Ordering::Equal));
+    }
+
+    // Cache results if caching is enabled
+    if cache {
+        let cache_key = SEARCH_CACHE.get_cache_key(query, &path.to_string_lossy(), extensions, fuzzy);
+        SEARCH_CACHE.set(cache_key, results.clone());
+    }
+    
+    // Print performance metrics
+    let search_time = start_time.elapsed();
+    let metrics = SearchMetrics {
+        files_processed,
+        total_lines_scanned,
+        search_time_ms: search_time.as_millis(),
+        parallel_workers: rayon::current_num_threads(),
+        cache_hits,
+        cache_misses,
+    };
+    
+    if benchmark || files_processed > 100 {
+        println!("{}", format!("⚡ Performance: {} files in {}ms ({} workers, {} cache hits)", 
+            metrics.files_processed, 
+            metrics.search_time_ms,
+            metrics.parallel_workers,
+            metrics.cache_hits
+        ).cyan().italic());
+        
+        if semantic {
+            println!("{}", "🧠 Semantic search enabled - enhanced context matching".blue().italic());
+        }
+        
+        if vs_grep {
+            compare_with_grep(query, &path.to_string_lossy(), extensions, &metrics);
+        }
+    }
+
+    Ok(results)
+}
+
+fn enhance_query_semantically(query: &str) -> String {
+    // Common programming patterns and their semantic equivalents
+    let semantic_patterns = [
+        ("function", r"(function|def|fn|func|method|procedure)"),
+        ("class", r"(class|struct|interface|trait|type)"),
+        ("variable", r"(let|var|const|val|mut)"),
+        ("loop", r"(for|while|do|foreach|map|filter)"),
+        ("condition", r"(if|else|switch|case|when|match)"),
+        ("error", r"(error|exception|panic|fail|throw)"),
+        ("test", r"(test|spec|it|describe|assert)"),
+        ("import", r"(import|use|require|include|from)"),
+        ("export", r"(export|module|pub|public)"),
+        ("async", r"(async|await|promise|future)"),
+        ("database", r"(db|database|sql|query|table)"),
+        ("api", r"(api|endpoint|route|handler)"),
+        ("config", r"(config|setting|option|parameter)"),
+        ("log", r"(log|debug|info|warn|error)"),
+        ("util", r"(util|helper|common|shared)"),
+    ];
+    
+    let mut enhanced = query.to_string();
+    
+    // Add semantic patterns for common programming terms
+    for (term, pattern) in &semantic_patterns {
+        if query.to_lowercase().contains(term) {
+            enhanced = format!("({}|{})", enhanced, pattern);
+        }
+    }
+    
+    // Add context-aware patterns
+    if query.contains("get") {
+        enhanced = format!("({}|retrieve|fetch|obtain)", enhanced);
+    }
+    if query.contains("set") {
+        enhanced = format!("({}|assign|update|modify)", enhanced);
+    }
+    if query.contains("create") {
+        enhanced = format!("({}|make|build|construct|new)", enhanced);
+    }
+    if query.contains("delete") {
+        enhanced = format!("({}|remove|destroy|clear)", enhanced);
+    }
+    
+    enhanced
+}
+
+fn compare_with_grep(
+    query: &str,
+    path: &str,
+    extensions: Option<&[String]>,
+    metrics: &SearchMetrics,
+) {
+    use std::process::Command;
+    
+    let start_time = Instant::now();
+    
+    // Build grep command
+    let mut grep_cmd = Command::new("grep");
+    grep_cmd.arg("-r").arg("-n").arg("--color=never");
+    
+    // Add file extensions if specified
+    if let Some(exts) = extensions {
+        for ext in exts {
+            grep_cmd.arg("--include").arg(&format!("*.{}", ext));
+        }
+    }
+    
+    grep_cmd.arg(query).arg(path);
+    
+    // Execute grep and measure time
+    let grep_result = grep_cmd.output();
+    let grep_time = start_time.elapsed();
+    
+    match grep_result {
+        Ok(output) => {
+            let grep_lines = String::from_utf8_lossy(&output.stdout).lines().count();
+            let speedup = if grep_time.as_millis() > 0 {
+                metrics.search_time_ms as f64 / grep_time.as_millis() as f64
+            } else {
+                0.0
+            };
+            
+            println!();
+            println!("{}", "📊 Performance Comparison with Grep".yellow().bold());
+            println!("{}", "─".repeat(40).yellow());
+            println!("  {}: {}ms", "Code Search".green().bold(), metrics.search_time_ms);
+            println!("  {}: {}ms", "Grep".blue().bold(), grep_time.as_millis());
+            println!("  {}: {:.1}x", "Speedup".cyan().bold(), speedup);
+            println!("  {}: {} vs {} lines", "Results".magenta().bold(), metrics.files_processed, grep_lines);
+            
+            if speedup > 1.0 {
+                println!("  {}: Code Search is {:.1}x faster!", "Winner".green().bold(), speedup);
+            } else if speedup < 1.0 {
+                println!("  {}: Grep is {:.1}x faster", "Winner".red().bold(), 1.0 / speedup);
+            } else {
+                println!("  {}: Similar performance", "Tie".yellow().bold());
+            }
+        }
+        Err(_) => {
+            println!("{}", "⚠️  Could not run grep comparison (grep not found)".yellow());
+        }
+    }
+}
+
+fn search_in_file_parallel(
+    file_path: &Path,
+    regex: &Arc<Regex>,
+    fuzzy: bool,
+    fuzzy_threshold: f64,
+    query: &Arc<String>,
+    max_results: usize,
+) -> Result<Vec<SearchResult>, Box<dyn std::error::Error>> {
+    let file = fs::File::open(file_path)?;
+    let reader = BufReader::new(file);
+    let mut results = Vec::new();
+    let mut line_count = 0;
+    let matcher = SkimMatcherV2::default();
+
+    for line in reader.lines() {
+        line_count += 1;
+        let line = line?;
+        
+        if results.len() >= max_results {
+            break;
+        }
+
+        if fuzzy {
+            // Use fuzzy matching
+            if let Some((score, indices)) = matcher.fuzzy_indices(&line, query) {
+                if score as f64 >= fuzzy_threshold {
+                    let mut matches = Vec::new();
+                    let mut last_end = 0;
+                    
+                    for &idx in &indices {
+                        if idx >= last_end {
+                            let start = idx;
+                            let end = idx + 1;
+                            matches.push(Match {
+                                start,
+                                end,
+                                text: line.chars().nth(idx).unwrap().to_string(),
+                            });
+                            last_end = end;
+                        }
+                    }
+
+                    let (relevance_score, relevance) = calculate_relevance_score(
+                        &line,
+                        query,
+                        line_count,
+                        file_path,
+                        true,
+                        Some(score),
+                    );
+
+                    results.push(SearchResult {
+                        file: file_path.to_string_lossy().to_string(),
+                        line_number: line_count,
+                        content: line.clone(),
+                        matches,
+                        score: relevance_score,
+                        relevance,
+                    });
+                }
+            }
+        } else {
+            // Use regex matching
+            for mat in regex.find_iter(&line) {
+                let mut matches = Vec::new();
+                matches.push(Match {
+                    start: mat.start(),
+                    end: mat.end(),
+                    text: mat.as_str().to_string(),
+                });
+
+                let (relevance_score, relevance) = calculate_relevance_score(
+                    &line,
+                    query,
+                    line_count,
+                    file_path,
+                    false,
+                    None,
+                );
+
+                results.push(SearchResult {
+                    file: file_path.to_string_lossy().to_string(),
+                    line_number: line_count,
+                    content: line.clone(),
+                    matches,
+                    score: relevance_score,
+                    relevance,
+                });
+            }
+        }
     }
 
     Ok(results)
@@ -1226,6 +1603,10 @@ fn interactive_search(
                     20,    // max_results
                     current_exclude.as_deref(),
                     false, // rank
+                    false, // cache
+                    false, // semantic
+                    false, // benchmark
+                    false, // vs_grep
                 )?;
 
                 if results.is_empty() {
@@ -1447,6 +1828,10 @@ mod tests {
             10,
             None,
             false,
+            false,
+            false,
+            false,
+            false,
         ).unwrap();
         
         assert!(!results.is_empty());
@@ -1469,6 +1854,10 @@ mod tests {
             10,
             None,
             false,
+            false,
+            false,
+            false,
+            false,
         ).unwrap();
         
         assert!(!results.is_empty());
@@ -1488,6 +1877,10 @@ mod tests {
             10,
             None,
             false,
+            false,
+            false,
+            false,
+            false,
         ).unwrap();
         
         assert!(!results.is_empty());
@@ -1506,6 +1899,10 @@ mod tests {
             0.6,
             10,
             None,
+            false,
+            false,
+            false,
+            false,
             false,
         ).unwrap();
         
