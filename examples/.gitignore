@@ -1,0 +1,28 @@
+# Ignore common build artifacts and temporary files
+*.class
+*.jar
+*.war
+*.ear
+*.o
+*.so
+*.dylib
+*.dll
+*.exe
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Log files
+*.log
+
+# Temporary files
+*.tmp
+*.temp
