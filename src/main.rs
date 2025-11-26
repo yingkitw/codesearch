@@ -1,3 +1,5 @@
+mod mcp_server;
+
 use clap::{Parser, Subcommand};
 use colored::*;
 use regex::Regex;
@@ -11,16 +13,18 @@ use fuzzy_matcher::FuzzyMatcher;
 use fuzzy_matcher::skim::SkimMatcherV2;
 use rayon::prelude::*;
 use dashmap::DashMap;
-use ahash::AHashMap;
-use lazy_static::lazy_static;
 
 #[derive(Parser)]
-#[command(name = "code-search")]
+#[command(name = "codesearch")]
 #[command(about = "A fast CLI tool for searching codebases")]
 #[command(version)]
 struct Cli {
     #[command(subcommand)]
-    command: Commands,
+    command: Option<Commands>,
+    
+    /// Search query (simple search without subcommand)
+    #[arg(last = true)]
+    query: Option<String>,
 }
 
 #[derive(Subcommand)]
@@ -38,9 +42,9 @@ enum Commands {
         /// Case-insensitive search
         #[arg(short, long)]
         ignore_case: bool,
-        /// Show line numbers
-        #[arg(short, long)]
-        line_numbers: bool,
+        /// Hide line numbers (line numbers shown by default)
+        #[arg(short = 'N', long)]
+        no_line_numbers: bool,
         /// Maximum number of results per file
         #[arg(long, default_value = "10")]
         max_results: usize,
@@ -56,9 +60,12 @@ enum Commands {
         /// Fuzzy search threshold (0.0 = exact match, 1.0 = very loose)
         #[arg(long, default_value = "0.6")]
         fuzzy_threshold: f64,
-        /// Exclude directories (e.g., target,node_modules)
+        /// Exclude directories (default: auto-excludes common build dirs)
         #[arg(long, value_delimiter = ',')]
         exclude: Option<Vec<String>>,
+        /// Don't auto-exclude common build directories
+        #[arg(long)]
+        no_auto_exclude: bool,
         /// Sort results by relevance score
         #[arg(long)]
         rank: bool,
@@ -144,10 +151,12 @@ enum Commands {
         #[arg(long)]
         history: bool,
     },
+    /// Run as MCP server
+    McpServer,
 }
 
-#[derive(Debug, Clone, serde::Serialize)]
-struct SearchResult {
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+pub struct SearchResult {
     file: String,
     line_number: usize,
     content: String,
@@ -156,15 +165,15 @@ struct SearchResult {
     relevance: String,
 }
 
-#[derive(Debug, Clone, serde::Serialize)]
-struct Match {
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+pub struct Match {
     start: usize,
     end: usize,
     text: String,
 }
 
-#[derive(Debug, Clone, serde::Serialize)]
-struct FileInfo {
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+pub struct FileInfo {
     path: String,
     size: u64,
     lines: usize,
@@ -173,13 +182,42 @@ struct FileInfo {
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let cli = Cli::parse();
 
+    // Handle simple search without subcommand: codesearch "query"
+    if cli.command.is_none() {
+        if let Some(query) = cli.query {
+            let results = search_code(
+                &query,
+                &PathBuf::from("."),
+                None,
+                true, // ignore_case by default for simple usage
+                false, // fuzzy
+                0.6,
+                10,
+                Some(&get_default_exclude_dirs()),
+                false, // rank
+                false, // cache
+                false, // semantic
+                false, // benchmark
+                false, // vs_grep
+            )?;
+            
+            print_results(&results, true, false); // line_numbers=true by default
+            print_search_stats(&results, &query);
+            return Ok(());
+        } else {
+            // No command and no query - show help
+            Cli::parse_from(&["codesearch", "--help"]);
+            return Ok(());
+        }
+    }
+
     match cli.command {
-        Commands::Search {
+        Some(Commands::Search {
             query,
             path,
             extensions,
             ignore_case,
-            line_numbers,
+            no_line_numbers,
             max_results,
             format,
             stats,
@@ -191,7 +229,19 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             semantic,
             benchmark,
             vs_grep,
-        } => {
+            no_auto_exclude,
+        }) => {
+            // Auto-exclude common build directories unless disabled
+            let final_exclude = if no_auto_exclude {
+                exclude
+            } else {
+                let mut auto_exclude = get_default_exclude_dirs();
+                if let Some(mut user_exclude) = exclude {
+                    auto_exclude.append(&mut user_exclude);
+                }
+                Some(auto_exclude)
+            };
+            
             let results = search_code(
                 &query,
                 &path,
@@ -200,7 +250,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 fuzzy,
                 fuzzy_threshold,
                 max_results,
-                exclude.as_deref(),
+                final_exclude.as_deref(),
                 rank,
                 cache,
                 semantic,
@@ -214,18 +264,20 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                     println!("{}", json);
                 }
                 _ => {
-                    print_results(&results, line_numbers, rank);
-                    if stats {
+                    // Line numbers shown by default unless --no-line-numbers is used
+                    print_results(&results, !no_line_numbers, rank);
+                    // Show stats by default for better UX
+                    if stats || results.len() > 0 {
                         print_search_stats(&results, &query);
                     }
                 }
             }
         }
-        Commands::Files {
+        Some(Commands::Files {
             path,
             extensions,
             exclude,
-        } => {
+        }) => {
             let files = list_files(&path, extensions.as_deref(), exclude.as_deref())?;
             match extensions {
                 Some(_) => {
@@ -239,36 +291,55 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 }
             }
         }
-        Commands::Interactive {
+        Some(Commands::Interactive {
             path,
             extensions,
             exclude,
-        } => {
+        }) => {
             interactive_search(&path, extensions.as_deref(), exclude.as_deref())?;
         }
-        Commands::Analyze {
+        Some(Commands::Analyze {
             path,
             extensions,
             exclude,
-        } => {
+        }) => {
             analyze_codebase(&path, extensions.as_deref(), exclude.as_deref())?;
         }
-        Commands::Refactor {
+        Some(Commands::Refactor {
             path,
             extensions,
             exclude,
             high_priority,
-        } => {
+        }) => {
             suggest_refactoring(&path, extensions.as_deref(), exclude.as_deref(), high_priority)?;
         }
-        Commands::Favorites {
+        Some(Commands::Favorites {
             list,
             add,
             remove,
             clear,
             history,
-        } => {
+        }) => {
             manage_favorites(list, add, remove, clear, history)?;
+        }
+        Some(Commands::McpServer) => {
+            #[cfg(feature = "mcp")]
+            {
+                use tokio::runtime::Runtime;
+                let rt = Runtime::new()?;
+                rt.block_on(mcp_server::run_mcp_server())?;
+            }
+            #[cfg(not(feature = "mcp"))]
+            {
+                eprintln!("MCP server support not enabled. Build with: cargo build --features mcp");
+                eprintln!("Or add to Cargo.toml: [features] default = [\"mcp\"]");
+                std::process::exit(1);
+            }
+        }
+        None => {
+            // This shouldn't happen as we handle None above
+            // But if it does, show help
+            Cli::parse_from(&["codesearch", "--help"]);
         }
     }
 
@@ -276,7 +347,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 }
 
 #[derive(Debug, Clone)]
-struct RefactorSuggestion {
+#[cfg_attr(feature = "mcp", derive(schemars::JsonSchema))]
+pub struct RefactorSuggestion {
     file: String,
     line_number: usize,
     suggestion_type: String,
@@ -286,7 +358,7 @@ struct RefactorSuggestion {
     improvement: String,
 }
 
-fn suggest_refactoring(
+pub fn suggest_refactoring(
     path: &Path,
     extensions: Option<&[String]>,
     exclude: Option<&[String]>,
@@ -355,7 +427,7 @@ fn suggest_refactoring(
     Ok(())
 }
 
-fn analyze_file_for_refactoring(
+pub fn analyze_file_for_refactoring(
     file_path: &str,
     content: &str,
     suggestions: &mut Vec<RefactorSuggestion>,
@@ -501,7 +573,7 @@ fn manage_favorites(
     clear: bool,
     history: bool,
 ) -> Result<(), Box<dyn std::error::Error>> {
-    let favorites_file = std::env::var("HOME").unwrap_or_else(|_| ".".to_string()) + "/.code-search-favorites.json";
+    let favorites_file = std::env::var("HOME").unwrap_or_else(|_| ".".to_string()) + "/.codesearch-favorites.json";
     
     if list {
         list_favorites(&favorites_file)?;
@@ -697,7 +769,7 @@ fn clear_favorites(favorites_file: &str) -> Result<(), Box<dyn std::error::Error
 }
 
 fn show_search_history() -> Result<(), Box<dyn std::error::Error>> {
-    let history_file = std::env::var("HOME").unwrap_or_else(|_| ".".to_string()) + "/.code-search-history.json";
+    let history_file = std::env::var("HOME").unwrap_or_else(|_| ".".to_string()) + "/.codesearch-history.json";
     
     if !std::path::Path::new(&history_file).exists() {
         println!("{}", "No search history found.".yellow());
@@ -726,10 +798,12 @@ fn show_search_history() -> Result<(), Box<dyn std::error::Error>> {
 #[derive(Debug, Clone)]
 struct SearchMetrics {
     files_processed: usize,
+    #[allow(dead_code)]
     total_lines_scanned: usize,
     search_time_ms: u128,
     parallel_workers: usize,
     cache_hits: usize,
+    #[allow(dead_code)]
     cache_misses: usize,
 }
 
@@ -776,11 +850,34 @@ impl SearchCache {
 }
 
 // Global cache instance
-lazy_static::lazy_static! {
-    static ref SEARCH_CACHE: SearchCache = SearchCache::new();
+static SEARCH_CACHE: std::sync::OnceLock<SearchCache> = std::sync::OnceLock::new();
+
+fn get_search_cache() -> &'static SearchCache {
+    SEARCH_CACHE.get_or_init(|| SearchCache::new())
 }
 
-fn search_code(
+// Get default directories to exclude (common build artifacts)
+fn get_default_exclude_dirs() -> Vec<String> {
+    vec![
+        "target".to_string(),
+        "node_modules".to_string(),
+        "dist".to_string(),
+        "build".to_string(),
+        ".git".to_string(),
+        ".cargo".to_string(),
+        "__pycache__".to_string(),
+        ".venv".to_string(),
+        "venv".to_string(),
+        ".next".to_string(),
+        ".nuxt".to_string(),
+        "vendor".to_string(),
+        ".gradle".to_string(),
+        ".idea".to_string(),
+        ".vscode".to_string(),
+    ]
+}
+
+pub fn search_code(
     query: &str,
     path: &Path,
     extensions: Option<&[String]>,
@@ -799,24 +896,20 @@ fn search_code(
     let mut results = Vec::new();
     
     // Performance tracking
-    let mut files_processed = 0;
-    let mut total_lines_scanned = 0;
-    let mut cache_hits = 0;
-    let mut cache_misses = 0;
-    
-    // Check cache first
-    if cache {
-        let cache_key = SEARCH_CACHE.get_cache_key(query, &path.to_string_lossy(), extensions, fuzzy);
-        if let Some(cached_results) = SEARCH_CACHE.get(&cache_key) {
-            cache_hits = 1;
+    let (cache_hits, cache_misses) = if cache {
+        let search_cache = get_search_cache();
+        let cache_key = search_cache.get_cache_key(query, &path.to_string_lossy(), extensions, fuzzy);
+        if let Some(cached_results) = search_cache.get(&cache_key) {
             if benchmark {
                 println!("{}", "🚀 Cache hit! Returning cached results instantly.".green().bold());
             }
             return Ok(cached_results);
         } else {
-            cache_misses = 1;
+            (0, 1)
         }
-    }
+    } else {
+        (0, 0)
+    };
     
     // Enhanced query for semantic search
     let enhanced_query = if semantic {
@@ -872,7 +965,7 @@ fn search_code(
         .map(|entry| entry.path().to_path_buf())
         .collect();
 
-    files_processed = files.len();
+    let files_processed = files.len();
     
     // Parallel search across files
     let regex_arc = Arc::new(regex);
@@ -882,7 +975,7 @@ fn search_code(
         .par_iter()
         .map(|file_path| {
             // Check if file was modified (for cache invalidation)
-            if cache && !SEARCH_CACHE.is_file_modified(&file_path.to_string_lossy()) {
+            if cache && !get_search_cache().is_file_modified(&file_path.to_string_lossy()) {
                 return Vec::new(); // Skip unchanged files
             }
             
@@ -897,9 +990,8 @@ fn search_code(
         })
         .collect();
     
-    // Flatten results and count lines
+    // Flatten results
     for file_results in parallel_results {
-        total_lines_scanned += file_results.len();
         results.extend(file_results);
     }
 
@@ -910,22 +1002,24 @@ fn search_code(
 
     // Cache results if caching is enabled
     if cache {
-        let cache_key = SEARCH_CACHE.get_cache_key(query, &path.to_string_lossy(), extensions, fuzzy);
-        SEARCH_CACHE.set(cache_key, results.clone());
+        let search_cache = get_search_cache();
+        let cache_key = search_cache.get_cache_key(query, &path.to_string_lossy(), extensions, fuzzy);
+        search_cache.set(cache_key, results.clone());
     }
     
     // Print performance metrics
     let search_time = start_time.elapsed();
-    let metrics = SearchMetrics {
-        files_processed,
-        total_lines_scanned,
-        search_time_ms: search_time.as_millis(),
-        parallel_workers: rayon::current_num_threads(),
-        cache_hits,
-        cache_misses,
-    };
     
     if benchmark || files_processed > 100 {
+        let metrics = SearchMetrics {
+            files_processed,
+            total_lines_scanned: results.len(),
+            search_time_ms: search_time.as_millis(),
+            parallel_workers: rayon::current_num_threads(),
+            cache_hits,
+            cache_misses,
+        };
+        
         println!("{}", format!("⚡ Performance: {} files in {}ms ({} workers, {} cache hits)", 
             metrics.files_processed, 
             metrics.search_time_ms,
@@ -938,6 +1032,14 @@ fn search_code(
         }
         
         if vs_grep {
+            let metrics = SearchMetrics {
+                files_processed,
+                total_lines_scanned: results.len(),
+                search_time_ms: search_time.as_millis(),
+                parallel_workers: rayon::current_num_threads(),
+                cache_hits,
+                cache_misses,
+            };
             compare_with_grep(query, &path.to_string_lossy(), extensions, &metrics);
         }
     }
@@ -1215,102 +1317,8 @@ fn calculate_relevance_score(
     (normalized_score, relevance)
 }
 
-fn search_in_file(
-    file_path: &Path,
-    regex: &Regex,
-    fuzzy: bool,
-    fuzzy_threshold: f64,
-    query: &str,
-    max_results: usize,
-) -> Result<Vec<SearchResult>, Box<dyn std::error::Error>> {
-    let file = fs::File::open(file_path)?;
-    let reader = BufReader::new(file);
-    let mut results = Vec::new();
-    let mut line_count = 0;
-    let matcher = SkimMatcherV2::default();
 
-    for line in reader.lines() {
-        line_count += 1;
-        let line = line?;
-        
-        if results.len() >= max_results {
-            break;
-        }
-
-        if fuzzy {
-            // Use fuzzy matching
-                if let Some((score, indices)) = matcher.fuzzy_indices(&line, query) {
-                    if score as f64 >= fuzzy_threshold {
-                        let mut matches = Vec::new();
-                        let mut last_end = 0;
-                        
-                        for &idx in &indices {
-                            if idx >= last_end {
-                                let start = idx;
-                                let end = idx + 1;
-                                matches.push(Match {
-                                    start,
-                                    end,
-                                    text: line.chars().nth(idx).unwrap().to_string(),
-                                });
-                                last_end = end;
-                            }
-                        }
-
-                        let (relevance_score, relevance) = calculate_relevance_score(
-                            &line,
-                            query,
-                            line_count,
-                            file_path,
-                            true,
-                            Some(score),
-                        );
-
-                        results.push(SearchResult {
-                            file: file_path.to_string_lossy().to_string(),
-                            line_number: line_count,
-                            content: line.clone(),
-                            matches,
-                            score: relevance_score,
-                            relevance,
-                        });
-                    }
-                }
-        } else {
-            // Use regex matching
-            for mat in regex.find_iter(&line) {
-                let mut matches = Vec::new();
-                matches.push(Match {
-                    start: mat.start(),
-                    end: mat.end(),
-                    text: mat.as_str().to_string(),
-                });
-
-                let (relevance_score, relevance) = calculate_relevance_score(
-                    &line,
-                    query,
-                    line_count,
-                    file_path,
-                    false,
-                    None,
-                );
-
-                results.push(SearchResult {
-                    file: file_path.to_string_lossy().to_string(),
-                    line_number: line_count,
-                    content: line.clone(),
-                    matches,
-                    score: relevance_score,
-                    relevance,
-                });
-            }
-        }
-    }
-
-    Ok(results)
-}
-
-fn list_files(
+pub fn list_files(
     path: &Path,
     extensions: Option<&[String]>,
     exclude: Option<&[String]>,
@@ -1521,7 +1529,7 @@ fn interactive_search(
     let mut current_exclude = exclude.map(|excl| excl.to_vec());
 
     loop {
-        print!("{}", "code-search> ".green().bold());
+        print!("{}", "codesearch> ".green().bold());
         io::stdout().flush()?;
 
         let mut input = String::new();
@@ -1635,7 +1643,7 @@ fn print_help() {
     println!();
 }
 
-fn analyze_codebase(
+pub fn analyze_codebase(
     path: &Path,
     extensions: Option<&[String]>,
     exclude: Option<&[String]>,
@@ -1807,9 +1815,10 @@ mod tests {
     fn test_search_in_file() {
         let temp_dir = create_test_files();
         let test_file = temp_dir.path().join("test.rs");
-        let regex = Regex::new("Hello").unwrap();
+        let regex = Arc::new(Regex::new("Hello").unwrap());
+        let query = Arc::new("Hello".to_string());
         
-        let results = search_in_file(&test_file, &regex, false, 0.6, "Hello", 10).unwrap();
+        let results = search_in_file_parallel(&test_file, &regex, false, 0.6, &query, 10).unwrap();
         assert_eq!(results.len(), 1);
         assert_eq!(results[0].line_number, 2);
         assert!(results[0].content.contains("Hello, world!"));

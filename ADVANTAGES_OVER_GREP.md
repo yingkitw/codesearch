@@ -40,7 +40,7 @@
 grep "function.*user" *.js
 
 # We could do semantic understanding:
-code-search search "user functions" --semantic
+codesearch search "user functions" --semantic
 # Finds: getUserById, createUser, updateUser, deleteUser
 ```
 
@@ -53,9 +53,9 @@ code-search search "user functions" --semantic
 ### 2. 🎯 **Context-Aware Search**
 ```bash
 # Search within specific scopes:
-code-search search "error" --context "class UserService"
-code-search search "validation" --context "function createUser"
-code-search search "TODO" --context "unimplemented"
+codesearch search "error" --context "class UserService"
+codesearch search "validation" --context "function createUser"
+codesearch search "TODO" --context "unimplemented"
 ```
 
 **Features:**
@@ -67,11 +67,11 @@ code-search search "TODO" --context "unimplemented"
 ### 3. 🔍 **Fuzzy Search & Smart Matching**
 ```bash
 # Fuzzy matching for typos and variations:
-code-search search "usermanager" --fuzzy
+codesearch search "usermanager" --fuzzy
 # Matches: UserManager, user_manager, userManager
 
 # Smart pattern suggestions:
-code-search search "get user" --suggest
+codesearch search "get user" --suggest
 # Suggests: getUserById, getUserByEmail, getAllUsers
 ```
 
@@ -83,7 +83,7 @@ code-search search "get user" --suggest
 
 ### 4. 📈 **Code Metrics & Statistics**
 ```bash
-code-search search "function" --stats
+codesearch search "function" --stats
 # Output: Found 45 functions across 12 files
 #         Most common: getUserById (8 occurrences)
 #         Largest function: processPayment (23 lines)
@@ -97,7 +97,7 @@ code-search search "function" --stats
 
 ### 5. 🎮 **Interactive Search Mode**
 ```bash
-code-search interactive
+codesearch interactive
 # Opens interactive mode with:
 # - Real-time search as you type
 # - Filter options (file type, scope, etc.)
@@ -114,7 +114,7 @@ code-search interactive
 
 ### 6. 🏆 **Smart Ranking & Scoring**
 ```bash
-code-search search "user" --ranked
+codesearch search "user" --ranked
 # Results ranked by relevance:
 # 1. User class definition (score: 95)
 # 2. getUserById function (score: 90)
@@ -130,7 +130,7 @@ code-search search "user" --ranked
 
 ### 7. 🔧 **Code Refactoring Integration**
 ```bash
-code-search search "deprecated" --refactor
+codesearch search "deprecated" --refactor
 # Suggests: Replace with new API
 #          Update imports
 #          Remove unused code
@@ -144,9 +144,9 @@ code-search search "deprecated" --refactor
 
 ### 8. 📚 **Search History & Learning**
 ```bash
-code-search history
+codesearch history
 # Shows: Recent searches, patterns, and results
-code-search favorites
+codesearch favorites
 # Shows: Bookmarked searches and results
 ```
 

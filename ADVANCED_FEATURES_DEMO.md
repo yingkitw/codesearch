@@ -7,27 +7,27 @@ This document demonstrates the advanced features that make our code search tool 
 Unlike grep, our tool offers an interactive mode for iterative searching:
 
 ```bash
-$ code-search interactive --extensions py,js,ts
+$ codesearch interactive --extensions py,js,ts
 🎮 Interactive Search Mode
 Type 'help' for commands, 'quit' to exit
 
-code-search> class
+codesearch> class
 Found 15 matches in 3 files
 # ... results ...
 
-code-search> extensions rs,go
+codesearch> extensions rs,go
 Extensions updated!
 
-code-search> function
+codesearch> function
 Found 8 matches in 2 files
 # ... results ...
 
-code-search> history
+codesearch> history
 Search History:
   1: class
   2: function
 
-code-search> quit
+codesearch> quit
 👋 Goodbye!
 ```
 
@@ -41,7 +41,7 @@ $ grep -r "usermanager" examples/
 # No results
 
 # Our fuzzy search finds matches
-$ code-search search "usrmngr" --fuzzy --extensions js
+$ codesearch search "usrmngr" --fuzzy --extensions js
 Found 10 matches in 1 files
 # Finds: UserManager, userManager, etc.
 ```
@@ -51,7 +51,7 @@ Found 10 matches in 1 files
 Get deep insights into your codebase:
 
 ```bash
-$ code-search analyze --extensions rs,py,js,ts,go,java
+$ codesearch analyze --extensions rs,py,js,ts,go,java
 📊 Codebase Analysis
 ────────────────────
 
@@ -86,7 +86,7 @@ $ code-search analyze --extensions rs,py,js,ts,go,java
 Get detailed analytics on your search results:
 
 ```bash
-$ code-search search "class" --extensions py,js,ts,java --stats
+$ codesearch search "class" --extensions py,js,ts,java --stats
 Found 21 matches in 4 files
 
 📁 ./examples/java_example.java (8 matches)
@@ -162,37 +162,37 @@ Found 3 matches in 2 files
 ### 1. Code Review
 ```bash
 # Find all TODO comments
-code-search search "TODO|FIXME|HACK" --stats
+codesearch search "TODO|FIXME|HACK" --stats
 
 # Find potential security issues
-code-search search "password|secret|key" --ignore-case --stats
+codesearch search "password|secret|key" --ignore-case --stats
 ```
 
 ### 2. Refactoring
 ```bash
 # Find all instances of a function
-code-search search "oldFunctionName" --fuzzy --stats
+codesearch search "oldFunctionName" --fuzzy --stats
 
 # Analyze code complexity
-code-search analyze --extensions js,ts
+codesearch analyze --extensions js,ts
 ```
 
 ### 3. Onboarding New Developers
 ```bash
 # Interactive exploration
-code-search interactive
+codesearch interactive
 
 # Get codebase overview
-code-search analyze
+codesearch analyze
 ```
 
 ### 4. Code Quality
 ```bash
 # Find large files that might need refactoring
-code-search analyze --extensions py,js,ts
+codesearch analyze --extensions py,js,ts
 
 # Find unused imports
-code-search search "^import.*unused" --extensions py,js,ts
+codesearch search "^import.*unused" --extensions py,js,ts
 ```
 
 ## 🔮 Future Potential
