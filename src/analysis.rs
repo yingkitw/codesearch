@@ -3,12 +3,12 @@
 //! Provides metrics and statistics about the codebase.
 
 use crate::language::{get_language_by_extension, get_supported_languages};
+use crate::parser::{get_file_extension, read_file_content};
 use crate::search::list_files;
 use crate::types::RefactorSuggestion;
 use colored::*;
 use regex::Regex;
 use std::collections::HashMap;
-use std::fs;
 use std::path::Path;
 
 /// Analyze codebase and print metrics
@@ -34,39 +34,35 @@ pub fn analyze_codebase(
         total_lines += file.lines;
         total_size += file.size;
 
-        let ext = Path::new(&file.path)
-            .extension()
-            .and_then(|e| e.to_str())
-            .unwrap_or("unknown")
-            .to_string();
+        let ext = get_file_extension(&file.path);
+        let ext_str = if ext.is_empty() { "unknown" } else { ext }.to_string();
 
-        let entry = language_stats.entry(ext.clone()).or_insert((0, 0, 0));
+        let entry = language_stats.entry(ext_str.clone()).or_insert((0, 0, 0));
         entry.0 += 1;
         entry.1 += file.lines;
         entry.2 += file.size;
 
-        if let Ok(content) = fs::read_to_string(&file.path) {
-            if let Some(lang_info) = get_language_by_extension(&ext) {
-                for pattern in lang_info.function_patterns {
-                    if let Ok(regex) = Regex::new(pattern) {
-                        function_count += regex.find_iter(&content).count();
-                    }
+        let content = read_file_content(&file.path);
+        if let Some(lang_info) = get_language_by_extension(ext) {
+            for pattern in lang_info.function_patterns {
+                if let Ok(regex) = Regex::new(pattern) {
+                    function_count += regex.find_iter(&content).count();
                 }
-                for pattern in lang_info.class_patterns {
-                    if let Ok(regex) = Regex::new(pattern) {
-                        class_count += regex.find_iter(&content).count();
-                    }
-                }
-                for pattern in lang_info.comment_patterns {
-                    if let Ok(regex) = Regex::new(pattern) {
-                        comment_lines += regex.find_iter(&content).count();
-                    }
-                }
-            } else {
-                function_count += count_generic_functions(&content);
-                class_count += count_generic_classes(&content);
-                comment_lines += count_generic_comments(&content);
             }
+            for pattern in lang_info.class_patterns {
+                if let Ok(regex) = Regex::new(pattern) {
+                    class_count += regex.find_iter(&content).count();
+                }
+            }
+            for pattern in lang_info.comment_patterns {
+                if let Ok(regex) = Regex::new(pattern) {
+                    comment_lines += regex.find_iter(&content).count();
+                }
+            }
+        } else {
+            function_count += count_generic_functions(&content);
+            class_count += count_generic_classes(&content);
+            comment_lines += count_generic_comments(&content);
         }
     }
 
@@ -173,7 +169,8 @@ pub fn suggest_refactoring(
     let mut suggestions = Vec::new();
 
     for file in &files {
-        if let Ok(content) = fs::read_to_string(&file.path) {
+        let content = read_file_content(&file.path);
+        if !content.is_empty() {
             analyze_file_for_refactoring(&file.path, &content, &mut suggestions);
         }
     }

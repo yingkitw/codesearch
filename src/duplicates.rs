@@ -2,11 +2,11 @@
 //!
 //! Detects similar code blocks across files using Jaccard similarity.
 
+use crate::parser::read_file_content;
 use crate::search::list_files;
 use crate::types::DuplicateBlock;
 use colored::*;
 use std::collections::HashSet;
-use std::fs;
 use std::path::Path;
 
 /// Detect code duplication in a directory
@@ -21,49 +21,7 @@ pub fn detect_duplicates(
     println!("{}", "─".repeat(30).cyan());
     println!();
 
-    let files = list_files(path, extensions, exclude)?;
-    let mut all_blocks: Vec<(String, usize, String)> = Vec::new(); // (file, line, block)
-
-    // Extract code blocks from all files
-    for file in &files {
-        if let Ok(content) = fs::read_to_string(&file.path) {
-            let blocks = extract_code_blocks(&content, min_lines);
-            for (line_num, block) in blocks {
-                all_blocks.push((file.path.clone(), line_num, block));
-            }
-        }
-    }
-
-    let mut duplicates: Vec<DuplicateBlock> = Vec::new();
-
-    // Compare all blocks for similarity
-    for i in 0..all_blocks.len() {
-        for j in (i + 1)..all_blocks.len() {
-            let (file1, line1, block1) = &all_blocks[i];
-            let (file2, line2, block2) = &all_blocks[j];
-
-            // Skip comparison within same file if blocks are adjacent
-            if file1 == file2 && (line1.abs_diff(*line2) < min_lines) {
-                continue;
-            }
-
-            let similarity = string_similarity(block1, block2);
-
-            if similarity >= similarity_threshold {
-                duplicates.push(DuplicateBlock {
-                    file1: file1.clone(),
-                    line1: *line1,
-                    file2: file2.clone(),
-                    line2: *line2,
-                    content: block1.chars().take(100).collect::<String>() + "...",
-                    similarity,
-                });
-            }
-        }
-    }
-
-    // Sort by similarity (highest first)
-    duplicates.sort_by(|a, b| b.similarity.partial_cmp(&a.similarity).unwrap_or(std::cmp::Ordering::Equal));
+    let duplicates = find_duplicates(path, extensions, exclude, min_lines, similarity_threshold)?;
 
     // Print results
     if duplicates.is_empty() {
@@ -102,7 +60,7 @@ pub fn detect_duplicates(
     Ok(())
 }
 
-/// Find duplicates and return the results (for MCP server)
+/// Find duplicates and return the results (shared implementation)
 pub fn find_duplicates(
     path: &Path,
     extensions: Option<&[String]>,
@@ -113,22 +71,23 @@ pub fn find_duplicates(
     let files = list_files(path, extensions, exclude)?;
     let mut all_blocks: Vec<(String, usize, String)> = Vec::new();
 
+    // Extract code blocks from all files
     for file in &files {
-        if let Ok(content) = fs::read_to_string(&file.path) {
-            let blocks = extract_code_blocks(&content, min_lines);
-            for (line_num, block) in blocks {
-                all_blocks.push((file.path.clone(), line_num, block));
-            }
+        let content = read_file_content(&file.path);
+        let blocks = extract_code_blocks(&content, min_lines);
+        for (line_num, block) in blocks {
+            all_blocks.push((file.path.clone(), line_num, block));
         }
     }
 
+    // Compare all blocks for similarity
     let mut duplicates: Vec<DuplicateBlock> = Vec::new();
-
     for i in 0..all_blocks.len() {
         for j in (i + 1)..all_blocks.len() {
             let (file1, line1, block1) = &all_blocks[i];
             let (file2, line2, block2) = &all_blocks[j];
 
+            // Skip comparison within same file if blocks are adjacent
             if file1 == file2 && (line1.abs_diff(*line2) < min_lines) {
                 continue;
             }
@@ -148,6 +107,7 @@ pub fn find_duplicates(
         }
     }
 
+    // Sort by similarity (highest first)
     duplicates.sort_by(|a, b| b.similarity.partial_cmp(&a.similarity).unwrap_or(std::cmp::Ordering::Equal));
 
     Ok(duplicates)

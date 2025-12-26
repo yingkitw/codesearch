@@ -20,6 +20,7 @@ pub mod export;
 pub mod interactive;
 pub mod language;
 pub mod mcp_server;
+pub mod parser;
 pub mod search;
 pub mod types;
 

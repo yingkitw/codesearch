@@ -2,12 +2,10 @@
 //!
 //! Detects circular function calls (cycles in the call graph).
 
-use crate::language::get_language_by_extension;
+use crate::parser::{extract_function_calls, extract_functions, get_file_extension, read_file_content};
 use crate::search::list_files;
 use colored::*;
-use regex::Regex;
 use std::collections::{HashMap, HashSet};
-use std::fs;
 use std::path::Path;
 use serde::Serialize;
 
@@ -77,21 +75,17 @@ pub fn find_circular_calls(
     let mut all_functions: HashSet<String> = HashSet::new();
 
     for file in &files {
-        if let Ok(content) = fs::read_to_string(&file.path) {
-            let ext = Path::new(&file.path)
-                .extension()
-                .and_then(|e| e.to_str())
-                .unwrap_or("");
+        let content = read_file_content(&file.path);
 
-            if let Some(lang) = get_language_by_extension(ext) {
-                // Extract function definitions and their bodies
-                let functions = extract_functions_with_calls(&content, lang.function_patterns);
-                
-                for (func_name, calls) in functions {
-                    all_functions.insert(func_name.clone());
-                    call_graph.insert(func_name, (file.path.clone(), calls));
-                }
-            }
+        // Extract function definitions
+        let functions = extract_functions(&content, &file.path);
+        
+        for (func_name, line_num) in functions {
+            all_functions.insert(func_name.clone());
+            
+            // Extract function calls from function body
+            let calls = extract_calls_from_function_body(&content, line_num);
+            call_graph.insert(func_name, (file.path.clone(), calls));
         }
     }
 
@@ -120,125 +114,53 @@ pub fn find_circular_calls(
     Ok(unique_cycles)
 }
 
-/// Extract functions and the functions they call
-fn extract_functions_with_calls(
-    content: &str,
-    _function_patterns: &[&str],
-) -> Vec<(String, HashSet<String>)> {
-    let mut results = Vec::new();
+/// Extract function calls from a function body starting at a given line
+fn extract_calls_from_function_body(content: &str, start_line: usize) -> HashSet<String> {
     let lines: Vec<&str> = content.lines().collect();
+    let mut calls = HashSet::new();
+    let mut brace_count = 0;
+    let mut in_body = false;
+    let mut started = false;
     
-    // Universal function definition patterns for common languages
-    let func_def_patterns = [
-        // Rust: fn name(
-        Regex::new(r"^\s*(?:pub\s+)?(?:async\s+)?fn\s+([a-zA-Z_][a-zA-Z0-9_]*)\s*[<\(]").unwrap(),
-        // Python: def name(
-        Regex::new(r"^\s*(?:async\s+)?def\s+([a-zA-Z_][a-zA-Z0-9_]*)\s*\(").unwrap(),
-        // JavaScript/TypeScript: function name(
-        Regex::new(r"^\s*(?:async\s+)?function\s+([a-zA-Z_][a-zA-Z0-9_]*)\s*\(").unwrap(),
-        // JavaScript: const/let/var name = function/arrow
-        Regex::new(r"^\s*(?:const|let|var)\s+([a-zA-Z_][a-zA-Z0-9_]*)\s*=\s*(?:async\s*)?\(?").unwrap(),
-        // Go: func name(
-        Regex::new(r"^\s*func\s+([a-zA-Z_][a-zA-Z0-9_]*)\s*\(").unwrap(),
-        // Java/C#/C++: type name(
-        Regex::new(r"^\s*(?:public|private|protected|static|async|virtual|override|\w+)\s+(?:\w+\s+)*([a-zA-Z_][a-zA-Z0-9_]*)\s*\([^)]*\)\s*\{?").unwrap(),
-    ];
+    let start_idx = start_line.saturating_sub(1);
     
-    // Simple identifier pattern for function calls
-    let call_pattern = Regex::new(r"\b([a-zA-Z_][a-zA-Z0-9_]*)\s*\(").unwrap();
-    
-    let mut i = 0;
-    while i < lines.len() {
-        let line = lines[i];
+    for j in start_idx..lines.len().min(start_idx + 200) {
+        let body_line = lines[j];
         
-        // Try each function pattern
-        let mut func_name: Option<String> = None;
-        for pattern in &func_def_patterns {
-            if let Some(caps) = pattern.captures(line) {
-                if let Some(name_match) = caps.get(1) {
-                    let name = name_match.as_str().to_string();
-                    if !is_keyword_or_builtin(&name) {
-                        func_name = Some(name);
-                        break;
-                    }
-                }
+        // Track braces
+        for c in body_line.chars() {
+            if c == '{' {
+                brace_count += 1;
+                in_body = true;
+                started = true;
+            } else if c == '}' {
+                brace_count -= 1;
             }
         }
         
-        if let Some(name) = func_name {
-            // Find the function body
-            let mut calls = HashSet::new();
-            let mut brace_count = 0;
-            let mut in_body = false;
-            let mut started = false;
-            
-            for j in i..lines.len().min(i + 200) {
-                let body_line = lines[j];
-                
-                // Track braces/indentation
-                for c in body_line.chars() {
-                    if c == '{' {
-                        brace_count += 1;
-                        in_body = true;
-                        started = true;
-                    } else if c == '}' {
-                        brace_count -= 1;
-                    }
-                }
-                
-                // For Python (no braces), use colon detection
-                if !started && body_line.trim().ends_with(':') {
-                    in_body = true;
-                    started = true;
-                }
-                
-                // Extract function calls from this line (skip the definition line itself)
-                if in_body && j > i {
-                    for call_cap in call_pattern.captures_iter(body_line) {
-                        if let Some(call_name) = call_cap.get(1) {
-                            let called = call_name.as_str().to_string();
-                            if !is_keyword_or_builtin(&called) {
-                                calls.insert(called);
-                            }
-                        }
-                    }
-                }
-                
-                // End of function (brace-based)
-                if started && brace_count == 0 && in_body {
-                    break;
-                }
-                
-                // For Python, detect end by dedent (simplified)
-                if started && !body_line.starts_with(' ') && !body_line.starts_with('\t') && !body_line.is_empty() && j > i + 1 {
-                    break;
-                }
-            }
-            
-            results.push((name, calls));
+        // For Python (no braces), use colon detection
+        if !started && body_line.trim().ends_with(':') {
+            in_body = true;
+            started = true;
         }
         
-        i += 1;
+        // Extract function calls (skip the definition line itself)
+        if in_body && j > start_idx {
+            calls.extend(extract_function_calls(body_line));
+        }
+        
+        // End of function (brace-based)
+        if started && brace_count == 0 && in_body {
+            break;
+        }
+        
+        // For Python, detect end by dedent (simplified)
+        if started && !body_line.starts_with(' ') && !body_line.starts_with('\t') && !body_line.is_empty() && j > start_idx {
+            break;
+        }
     }
     
-    results
-}
-
-/// Check if a name is a keyword or builtin
-fn is_keyword_or_builtin(name: &str) -> bool {
-    matches!(
-        name,
-        "if" | "else" | "for" | "while" | "loop" | "match" | "switch" | "case"
-            | "return" | "break" | "continue" | "fn" | "function" | "def" | "func"
-            | "class" | "struct" | "impl" | "trait" | "interface" | "enum" | "type"
-            | "let" | "const" | "var" | "mut" | "pub" | "public" | "private" | "protected"
-            | "static" | "async" | "await" | "try" | "catch" | "throw" | "new"
-            | "import" | "export" | "use" | "from" | "require" | "include"
-            | "true" | "false" | "null" | "None" | "nil" | "undefined"
-            | "self" | "this" | "super" | "println" | "print" | "printf" | "console"
-            | "String" | "Vec" | "Option" | "Result" | "Ok" | "Err" | "Some"
-            | "len" | "append" | "push" | "pop" | "get" | "set" | "map" | "filter"
-    )
+    calls
 }
 
 /// DFS to find cycles
@@ -321,14 +243,6 @@ fn format_cycle(chain: &[String]) -> String {
 mod tests {
     use super::*;
 
-    #[test]
-    fn test_is_keyword_or_builtin() {
-        assert!(is_keyword_or_builtin("if"));
-        assert!(is_keyword_or_builtin("function"));
-        assert!(is_keyword_or_builtin("println"));
-        assert!(!is_keyword_or_builtin("myFunction"));
-        assert!(!is_keyword_or_builtin("calculate"));
-    }
 
     #[test]
     fn test_format_cycle() {

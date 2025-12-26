@@ -2,14 +2,11 @@
 //!
 //! Identifies potentially unused code: functions, classes, imports, and commented-out code.
 
-use crate::language::get_language_by_extension;
+use crate::parser::{extract_classes, extract_functions, extract_identifier_references, read_file_content};
 use crate::search::list_files;
 use colored::*;
-use regex::Regex;
 use std::collections::HashMap;
-use std::fs;
 use std::path::Path;
-
 use serde::Serialize;
 
 /// Dead code detection result
@@ -32,11 +29,28 @@ pub fn detect_dead_code(
     println!("{}", "─".repeat(30).cyan());
     println!();
 
+    let dead_code_items = find_dead_code(path, extensions, exclude)?;
+    
+    if dead_code_items.is_empty() {
+        println!("{}", "No files found to analyze.".dimmed());
+        return Ok(());
+    }
+
+    print_dead_code_results(&dead_code_items);
+
+    Ok(())
+}
+
+/// Find dead code and return the results (shared implementation)
+pub fn find_dead_code(
+    path: &Path,
+    extensions: Option<&[String]>,
+    exclude: Option<&[String]>,
+) -> Result<Vec<DeadCodeItem>, Box<dyn std::error::Error>> {
     let files = list_files(path, extensions, exclude)?;
     
     if files.is_empty() {
-        println!("{}", "No files found to analyze.".dimmed());
-        return Ok(());
+        return Ok(Vec::new());
     }
 
     let mut dead_code_items: Vec<DeadCodeItem> = Vec::new();
@@ -45,55 +59,29 @@ pub fn detect_dead_code(
 
     // First pass: collect all definitions and references
     for file in &files {
-        if let Ok(content) = fs::read_to_string(&file.path) {
-            let ext = Path::new(&file.path)
-                .extension()
-                .and_then(|e| e.to_str())
-                .unwrap_or("");
+        let content = read_file_content(&file.path);
 
-            if let Some(lang) = get_language_by_extension(ext) {
-                // Extract function definitions
-                for pattern in lang.function_patterns {
-                    if let Ok(re) = Regex::new(pattern) {
-                        for (line_num, line) in content.lines().enumerate() {
-                            if let Some(caps) = re.captures(line) {
-                                if let Some(name) = extract_identifier_from_match(&caps) {
-                                    if !is_special_function(&name) {
-                                        all_definitions.insert(
-                                            name.clone(),
-                                            (file.path.clone(), line_num + 1, "function".to_string()),
-                                        );
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-
-                // Extract class definitions
-                for pattern in lang.class_patterns {
-                    if let Ok(re) = Regex::new(pattern) {
-                        for (line_num, line) in content.lines().enumerate() {
-                            if let Some(caps) = re.captures(line) {
-                                if let Some(name) = extract_identifier_from_match(&caps) {
-                                    all_definitions.insert(
-                                        name.clone(),
-                                        (file.path.clone(), line_num + 1, "class/struct".to_string()),
-                                    );
-                                }
-                            }
-                        }
-                    }
-                }
+        // Extract function definitions
+        for (name, line_num) in extract_functions(&content, &file.path) {
+            if !is_special_function(&name) {
+                all_definitions.insert(
+                    name.clone(),
+                    (file.path.clone(), line_num, "function".to_string()),
+                );
             }
+        }
 
-            // Count all identifier references
-            let identifier_re = Regex::new(r"\b([a-zA-Z_][a-zA-Z0-9_]*)\b").unwrap();
-            for cap in identifier_re.captures_iter(&content) {
-                if let Some(name) = cap.get(1) {
-                    *all_references.entry(name.as_str().to_string()).or_insert(0) += 1;
-                }
-            }
+        // Extract class definitions
+        for (name, line_num) in extract_classes(&content, &file.path) {
+            all_definitions.insert(
+                name.clone(),
+                (file.path.clone(), line_num, "class/struct".to_string()),
+            );
+        }
+
+        // Count all identifier references
+        for ref_name in extract_identifier_references(&content) {
+            *all_references.entry(ref_name).or_insert(0) += 1;
         }
     }
 
@@ -122,103 +110,8 @@ pub fn detect_dead_code(
 
     // Third pass: detect other dead code patterns
     for file in &files {
-        if let Ok(content) = fs::read_to_string(&file.path) {
-            detect_dead_code_patterns(&file.path, &content, &mut dead_code_items);
-        }
-    }
-
-    // Sort by file and line number
-    dead_code_items.sort_by(|a, b| {
-        a.file.cmp(&b.file).then(a.line_number.cmp(&b.line_number))
-    });
-
-    // Print results
-    print_dead_code_results(&dead_code_items);
-
-    Ok(())
-}
-
-/// Find dead code and return the results (for MCP server)
-pub fn find_dead_code(
-    path: &Path,
-    extensions: Option<&[String]>,
-    exclude: Option<&[String]>,
-) -> Result<Vec<DeadCodeItem>, Box<dyn std::error::Error>> {
-    let files = list_files(path, extensions, exclude)?;
-    
-    if files.is_empty() {
-        return Ok(Vec::new());
-    }
-
-    let mut dead_code_items: Vec<DeadCodeItem> = Vec::new();
-    let mut all_definitions: HashMap<String, (String, usize, String)> = HashMap::new();
-    let mut all_references: HashMap<String, usize> = HashMap::new();
-
-    // First pass: collect all definitions and references
-    for file in &files {
-        if let Ok(content) = fs::read_to_string(&file.path) {
-            let ext = Path::new(&file.path)
-                .extension()
-                .and_then(|e| e.to_str())
-                .unwrap_or("");
-
-            if let Some(lang) = get_language_by_extension(ext) {
-                // Extract function definitions
-                for pattern in lang.function_patterns {
-                    if let Ok(re) = Regex::new(pattern) {
-                        for (line_num, line) in content.lines().enumerate() {
-                            if let Some(caps) = re.captures(line) {
-                                if let Some(name) = extract_identifier_from_match(&caps) {
-                                    if !is_special_function(&name) {
-                                        all_definitions.insert(
-                                            name.clone(),
-                                            (file.path.clone(), line_num + 1, "function".to_string()),
-                                        );
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-
-            // Count all identifier references
-            let identifier_re = Regex::new(r"\b([a-zA-Z_][a-zA-Z0-9_]*)\b").unwrap();
-            for cap in identifier_re.captures_iter(&content) {
-                if let Some(name) = cap.get(1) {
-                    *all_references.entry(name.as_str().to_string()).or_insert(0) += 1;
-                }
-            }
-        }
-    }
-
-    // Second pass: identify dead code
-    for (name, (file, line, item_type)) in &all_definitions {
-        let ref_count = all_references.get(name).copied().unwrap_or(0);
-        if ref_count <= 1 {
-            dead_code_items.push(DeadCodeItem {
-                file: file.clone(),
-                line_number: *line,
-                item_type: item_type.clone(),
-                name: name.clone(),
-                reason: "Only defined, never used elsewhere".to_string(),
-            });
-        } else if ref_count == 2 && item_type == "function" {
-            dead_code_items.push(DeadCodeItem {
-                file: file.clone(),
-                line_number: *line,
-                item_type: item_type.clone(),
-                name: name.clone(),
-                reason: "Used only once - consider inlining".to_string(),
-            });
-        }
-    }
-
-    // Third pass: detect other dead code patterns
-    for file in &files {
-        if let Ok(content) = fs::read_to_string(&file.path) {
-            detect_dead_code_patterns(&file.path, &content, &mut dead_code_items);
-        }
+        let content = read_file_content(&file.path);
+        detect_dead_code_patterns(&file.path, &content, &mut dead_code_items);
     }
 
     // Sort by file and line number
@@ -277,18 +170,6 @@ fn print_dead_code_results(items: &[DeadCodeItem]) {
     }
 }
 
-fn extract_identifier_from_match(caps: &regex::Captures) -> Option<String> {
-    for i in 1..caps.len() {
-        if let Some(m) = caps.get(i) {
-            let s = m.as_str().trim();
-            if !s.is_empty() && !is_keyword(s) && s.chars().next().map(|c| c.is_alphabetic() || c == '_').unwrap_or(false) {
-                return Some(s.to_string());
-            }
-        }
-    }
-    None
-}
-
 fn is_special_function(name: &str) -> bool {
     matches!(
         name,
@@ -296,18 +177,6 @@ fn is_special_function(name: &str) -> bool {
             | "test" | "run" | "start" | "stop" | "get" | "set" | "from" | "into"
     ) || name.starts_with("test_")
       || name.starts_with("Test")
-}
-
-fn is_keyword(s: &str) -> bool {
-    matches!(
-        s,
-        "fn" | "function" | "def" | "func" | "pub" | "public" | "private" | "protected"
-            | "static" | "async" | "await" | "class" | "struct" | "impl" | "trait"
-            | "interface" | "enum" | "type" | "let" | "const" | "var" | "mut"
-            | "if" | "else" | "for" | "while" | "loop" | "match" | "switch" | "case"
-            | "return" | "break" | "continue" | "true" | "false" | "null" | "None"
-            | "self" | "this" | "super" | "import" | "export" | "use" | "from"
-    )
 }
 
 fn detect_dead_code_patterns(file_path: &str, content: &str, items: &mut Vec<DeadCodeItem>) {
@@ -445,9 +314,10 @@ mod tests {
 
     #[test]
     fn test_is_keyword() {
-        assert!(is_keyword("fn"));
-        assert!(is_keyword("class"));
-        assert!(!is_keyword("myFunction"));
+        use crate::parser::is_keyword_or_builtin;
+        assert!(is_keyword_or_builtin("fn"));
+        assert!(is_keyword_or_builtin("class"));
+        assert!(!is_keyword_or_builtin("myFunction"));
     }
 
     #[test]
