@@ -88,9 +88,13 @@ codesearch analyze
 
 - **Fast text search** with full regex support
 - **Fuzzy search** for handling typos
-- **Multi-language support** with intelligent filtering
-- **Interactive mode** with real-time feedback
+- **Multi-language support** (48 languages) with intelligent filtering
+- **Interactive mode** with real-time feedback and keyboard shortcuts
 - **Codebase analysis** with metrics and insights
+- **Code complexity metrics** (cyclomatic & cognitive complexity)
+- **Code duplication detection** to identify similar code blocks
+- **Export functionality** (CSV, Markdown) for results
+- **Themeable output** (default, dark, light, mono, ocean, forest)
 - **MCP server support** for AI integration (optional)
 
 ## 🚀 Installation
@@ -103,6 +107,42 @@ cargo build --release
 # With MCP server support
 cargo build --release --features mcp
 ```
+
+## ⚙️ Configuration
+
+Code Search supports configuration files for customizing default behavior. Create a `.codesearchrc` or `.codesearch.toml` file in your project root or home directory.
+
+**Config file locations (checked in order):**
+1. `.codesearchrc` (current directory)
+2. `.codesearch.toml` (current directory)
+3. `~/.codesearchrc` (home directory)
+4. `~/.codesearch.toml` (home directory)
+
+**Example `.codesearchrc`:**
+```toml
+[search]
+fuzzy_threshold = 0.6
+max_results = 10
+ignore_case = true
+show_line_numbers = true
+format = "text"
+auto_exclude = true
+cache = false
+semantic = false
+rank = false
+
+# Optional: default extensions
+# extensions = ["rs", "py", "js", "ts"]
+
+# Optional: custom exclude directories
+# exclude = ["custom_dir"]
+
+[defaults]
+# Optional: custom exclude directories (merged with auto-exclude)
+# exclude_dirs = ["custom_build"]
+```
+
+**Note:** CLI arguments always override config file settings.
 
 ## 📖 Usage
 
@@ -118,6 +158,10 @@ codesearch "usrmngr" --fuzzy
 
 # JSON output
 codesearch "error" --format json
+
+# Export results to CSV or Markdown
+codesearch "function" --export results.csv
+codesearch "class" --export results.md
 ```
 
 ### Advanced Options
@@ -137,8 +181,17 @@ codesearch search "import" --exclude target,node_modules
 
 ```bash
 codesearch interactive --extensions py,js,ts
-# Commands: extensions, exclude, history, help, quit
 ```
+
+**Keyboard Shortcuts:**
+- `/f` - Toggle fuzzy search mode
+- `/i` - Toggle case insensitivity
+- `/r` - Toggle relevance ranking
+- `/s` - Toggle semantic search
+- `!!` - Repeat last search
+- `!n` - Repeat search #n from history
+
+**Commands:** `analyze`, `complexity`, `duplicates`, `refactor`, `export`, `status`, `help`, `quit`
 
 ### Codebase Analysis
 
@@ -149,6 +202,61 @@ codesearch analyze
 # Analyze specific languages
 codesearch analyze --extensions rs,py,js,ts
 ```
+
+### Code Complexity Analysis
+
+```bash
+# Analyze code complexity (cyclomatic & cognitive)
+codesearch complexity
+
+# Show only high complexity files (threshold)
+codesearch complexity --threshold 15 --sort
+
+# Analyze specific file types
+codesearch complexity --extensions rs,py,js
+```
+
+### Code Duplication Detection
+
+```bash
+# Find duplicate code blocks
+codesearch duplicates
+
+# Custom similarity threshold (0.0 - 1.0)
+codesearch duplicates --similarity 0.8
+
+# Minimum lines for a duplicate block
+codesearch duplicates --min-lines 5
+```
+
+### Themes
+
+```bash
+# Use different output themes
+codesearch "function" --theme dark
+codesearch "class" --theme ocean
+codesearch "TODO" --theme forest
+
+# Available themes: default, dark, light, mono, ocean, forest
+```
+
+### Supported Languages
+
+```bash
+# List all 48 supported programming languages
+codesearch languages
+```
+
+**Supported language categories:**
+- **Systems & Low-Level**: Rust, C, C++, Go, Zig, V, Nim, Assembly
+- **Object-Oriented**: Java, C#, Kotlin, Swift, Objective-C, Dart
+- **Scripting**: Python, JavaScript, TypeScript, Ruby, Perl, Lua, PHP
+- **Functional**: Haskell, Elixir, Erlang, Clojure, OCaml, F#, Scala
+- **Shell & Config**: Shell, PowerShell, Makefile, Dockerfile, Terraform
+- **Data & Markup**: SQL, YAML, TOML, JSON, XML/HTML, CSS, Markdown
+- **Scientific**: R, Julia
+- **Domain Specific**: Solidity, GraphQL, Protobuf, WebAssembly
+- **Build Tools**: Groovy, Gradle, Crystal
 
 ### MCP Server
 
@@ -224,30 +332,57 @@ codesearch "Error|Exception" -e js,ts,py
 - **Efficient regex matching** with compiled patterns
 - **Memory-efficient** streaming for large files
 - **Parallel processing** for large codebases
+- **Progress indicators** for long-running searches (>50 files)
 - **10x faster** than grep for complex patterns
 
 ## 🧪 Testing
 
 ```bash
-# Run all tests
+# Run all tests (66 unit tests + 26 integration tests = 92 total)
 cargo test
 
 # Run with verbose output
 cargo test -- --nocapture
 ```
 
+**Test Coverage:**
+- **66 unit tests**: Individual function testing with comprehensive edge cases
+- **26 integration tests**: End-to-end CLI command testing
+- **Total**: 92 tests covering all major capabilities
+
 ## 📁 Project Structure
 
 ```
 codesearch/
 ├── src/
-│   ├── main.rs           # Main CLI application
-│   └── mcp_server.rs     # MCP server implementation
+│   ├── main.rs           # CLI entry point, interactive mode (699 LOC)
+│   ├── search.rs         # Core search engine (645 LOC)
+│   ├── language.rs       # 48 language definitions (506 LOC)
+│   ├── analysis.rs       # Codebase analysis (418 LOC)
+│   ├── mcp_server.rs     # MCP server integration (375 LOC)
+│   ├── complexity.rs     # Complexity metrics (308 LOC)
+│   ├── duplicates.rs     # Duplication detection (196 LOC)
+│   ├── favorites.rs      # Favorites & history (199 LOC)
+│   ├── export.rs         # CSV/Markdown export (185 LOC)
+│   ├── config.rs         # Configuration handling (183 LOC)
+│   ├── theme.rs          # 6 output themes (179 LOC)
+│   ├── cache.rs          # Search caching (125 LOC)
+│   └── types.rs          # Shared types (112 LOC)
 ├── tests/
 │   └── integration_tests.rs
 ├── Cargo.toml
-└── README.md
+├── README.md
+├── ARCHITECTURE.md        # Architecture documentation
+└── TODO.md                # Task tracking
 ```
+
+**Total: 13 modules, ~4,100 lines of code**
+
+## 📚 Documentation
+
+- **[README.md](README.md)**: Main documentation and usage guide
+- **[ARCHITECTURE.md](ARCHITECTURE.md)**: System architecture and design
+- **[TODO.md](TODO.md)**: Task tracking and future plans
 
 ## 🤝 Contributing
 

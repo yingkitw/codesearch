@@ -1,8 +1,12 @@
-// MCP Server implementation using rmcp 0.8
+// MCP Server implementation using rmcp 0.10
 // This module provides MCP server functionality for code search operations
 
 #[cfg(feature = "mcp")]
-use crate::*;
+use crate::analysis::analyze_file_for_refactoring;
+#[cfg(feature = "mcp")]
+use crate::search::{list_files, search_code};
+#[cfg(feature = "mcp")]
+use crate::types::{FileInfo, Match, RefactorSuggestion, SearchResult};
 #[cfg(feature = "mcp")]
 use std::path::PathBuf;
 
@@ -14,41 +18,41 @@ use rmcp::{
         wrapper::{Parameters, Json},
     },
     transport::io::stdio,
-    service::{RoleServer, serve_server},
+    service::serve_server,
 };
 #[cfg(feature = "mcp")]
 use schemars::JsonSchema;
 #[cfg(feature = "mcp")]
 use serde::{Deserialize, Serialize};
 
-// Implement JsonSchema for types that need it for MCP
+// Implement JsonSchema for types that need it for MCP (schemars 1.2)
 #[cfg(feature = "mcp")]
 impl JsonSchema for SearchResult {
-    fn schema_name() -> String {
-        "SearchResult".to_string()
+    fn schema_name() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed("SearchResult")
     }
-    fn json_schema(_generator: &mut schemars::r#gen::SchemaGenerator) -> schemars::Schema {
-        schemars::Schema::Object(schemars::schema::SchemaObject::default())
+    fn json_schema(_generator: &mut schemars::SchemaGenerator) -> schemars::Schema {
+        schemars::Schema::default()
     }
 }
 
 #[cfg(feature = "mcp")]
 impl JsonSchema for FileInfo {
-    fn schema_name() -> String {
-        "FileInfo".to_string()
+    fn schema_name() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed("FileInfo")
     }
-    fn json_schema(_generator: &mut schemars::r#gen::SchemaGenerator) -> schemars::Schema {
-        schemars::Schema::Object(schemars::schema::SchemaObject::default())
+    fn json_schema(_generator: &mut schemars::SchemaGenerator) -> schemars::Schema {
+        schemars::Schema::default()
     }
 }
 
 #[cfg(feature = "mcp")]
 impl JsonSchema for Match {
-    fn schema_name() -> String {
-        "Match".to_string()
+    fn schema_name() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed("Match")
     }
-    fn json_schema(_generator: &mut schemars::r#gen::SchemaGenerator) -> schemars::Schema {
-        schemars::Schema::Object(schemars::schema::SchemaObject::default())
+    fn json_schema(_generator: &mut schemars::SchemaGenerator) -> schemars::Schema {
+        schemars::Schema::default()
     }
 }
 
@@ -358,17 +362,16 @@ impl ServerHandler for CodeSearchMcpService {}
 
 #[cfg(feature = "mcp")]
 pub async fn run_mcp_server() -> Result<(), Box<dyn std::error::Error>> {
-    use tokio::io::{stdin, stdout};
-    
     let service = CodeSearchMcpService::new();
-    let transport = stdio((stdin(), stdout()));
+    let transport = stdio();
     
-    serve_server::<RoleServer, _>(service, transport).await?;
+    serve_server(service, transport).await?;
     
     Ok(())
 }
 
 #[cfg(not(feature = "mcp"))]
+#[allow(dead_code)]
 pub async fn run_mcp_server() -> Result<(), Box<dyn std::error::Error>> {
     Err("MCP server support not enabled. Build with --features mcp".into())
 }

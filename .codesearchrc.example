@@ -1,0 +1,46 @@
+# Code Search Configuration File
+# Place this file as .codesearchrc or .codesearch.toml in your home directory or project root
+# Config files are checked in this order:
+# 1. .codesearchrc (current directory)
+# 2. .codesearch.toml (current directory)
+# 3. ~/.codesearchrc (home directory)
+# 4. ~/.codesearch.toml (home directory)
+
+[search]
+# Fuzzy search threshold (0.0 = exact match, 1.0 = very loose)
+fuzzy_threshold = 0.6
+
+# Maximum number of results per file
+max_results = 10
+
+# Case-insensitive search by default
+ignore_case = true
+
+# Show line numbers by default
+show_line_numbers = true
+
+# Default output format: "text" or "json"
+format = "text"
+
+# Default file extensions to search (comma-separated, optional)
+# extensions = ["rs", "py", "js", "ts"]
+
+# Default directories to exclude (optional)
+# exclude = ["custom_dir", "another_dir"]
+
+# Auto-exclude common build directories (target, node_modules, etc.)
+auto_exclude = true
+
+# Enable caching by default
+cache = false
+
+# Enable semantic search by default
+semantic = false
+
+# Sort results by relevance score by default
+rank = false
+
+[defaults]
+# Custom exclude directories (merged with auto-exclude if auto_exclude = true)
+# exclude_dirs = ["custom_build", "temp"]
+

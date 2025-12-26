@@ -44,7 +44,7 @@ mod tests {
             // Fallback to cargo run if binary doesn't exist
             Command::new("cargo")
                 .args(&["run", "--", "search", "Hello", "--path", temp_dir.path().to_str().unwrap(), "--no-auto-exclude"])
-                .output()
+            .output()
                 .unwrap()
         };
 
@@ -70,7 +70,7 @@ mod tests {
         } else {
             Command::new("cargo")
                 .args(&["run", "--", "search", "hello", "--path", temp_dir.path().to_str().unwrap(), "--extensions", "rs,py", "--ignore-case", "--no-auto-exclude"])
-                .output()
+            .output()
                 .unwrap()
         };
 
@@ -99,7 +99,7 @@ mod tests {
         } else {
             Command::new("cargo")
                 .args(&["run", "--", "search", "hello", "--path", temp_dir.path().to_str().unwrap(), "--ignore-case", "--no-auto-exclude"])
-                .output()
+            .output()
                 .unwrap()
         };
 
@@ -125,7 +125,7 @@ mod tests {
         } else {
             Command::new("cargo")
                 .args(&["run", "--", "search", r"fn\s+\w+", "--path", temp_dir.path().to_str().unwrap(), "--extensions", "rs", "--no-auto-exclude"])
-                .output()
+            .output()
                 .unwrap()
         };
 
@@ -151,8 +151,8 @@ mod tests {
                 .unwrap()
         } else {
             Command::new("cargo")
-                .args(&["run", "--", "files", "--path", temp_dir.path().to_str().unwrap(), "--extensions", "rs"])
-                .output()
+            .args(&["run", "--", "files", "--path", temp_dir.path().to_str().unwrap(), "--extensions", "rs"])
+            .output()
                 .unwrap()
         };
 
@@ -179,7 +179,7 @@ mod tests {
         } else {
             Command::new("cargo")
                 .args(&["run", "--", "search", "Hello", "--path", temp_dir.path().to_str().unwrap(), "--format", "json", "--no-auto-exclude"])
-                .output()
+            .output()
                 .unwrap()
         };
 
