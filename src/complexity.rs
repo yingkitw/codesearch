@@ -18,7 +18,7 @@ pub fn analyze_complexity(
     threshold: Option<u32>,
     sort: bool,
 ) -> Result<(), Box<dyn std::error::Error>> {
-    println!("{}", "📊 Code Complexity Analysis".cyan().bold());
+    println!("{}", "Code Complexity Analysis".cyan().bold());
     println!("{}", "─".repeat(30).cyan());
     println!();
 

@@ -2,11 +2,9 @@
 // This module provides MCP server functionality for code search operations
 
 #[cfg(feature = "mcp")]
-use crate::analysis::analyze_file_for_refactoring;
-#[cfg(feature = "mcp")]
 use crate::search::{list_files, search_code};
 #[cfg(feature = "mcp")]
-use crate::types::{FileInfo, Match, RefactorSuggestion, SearchResult};
+use crate::types::{FileInfo, Match, SearchResult};
 #[cfg(feature = "mcp")]
 use std::path::PathBuf;
 
@@ -116,22 +114,6 @@ pub struct AnalyzeCodebaseParams {
     pub exclude: Option<Vec<String>>,
 }
 
-#[cfg(feature = "mcp")]
-#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
-pub struct SuggestRefactoringParams {
-    /// Directory to analyze (default: current directory)
-    #[serde(default)]
-    pub path: Option<String>,
-    /// File extensions to include (e.g., ["rs", "py", "js"])
-    #[serde(default)]
-    pub extensions: Option<Vec<String>>,
-    /// Exclude directories (e.g., ["target", "node_modules"])
-    #[serde(default)]
-    pub exclude: Option<Vec<String>>,
-    /// Show only high-priority suggestions
-    #[serde(default)]
-    pub high_priority: Option<bool>,
-}
 
 #[cfg(feature = "mcp")]
 #[derive(Debug, Clone)]
@@ -290,70 +272,6 @@ impl CodeSearchMcpService {
         }))
     }
 
-    /// Suggest code refactoring improvements with priority levels. Returns JSON with suggestions
-    #[tool(description = "Suggest code refactoring improvements with priority levels. Returns JSON with suggestions")]
-    pub async fn suggest_refactoring(
-        &self,
-        params: Parameters<SuggestRefactoringParams>,
-    ) -> Json<serde_json::Value> {
-        let params = params.0;
-        let path_buf = PathBuf::from(params.path.as_deref().unwrap_or("."));
-        
-        let files = list_files(
-            &path_buf,
-            params.extensions.as_deref(),
-            params.exclude.as_deref(),
-        ).unwrap_or_default();
-        
-        let mut suggestions = Vec::new();
-
-        for file in &files {
-            if let Ok(content) = std::fs::read_to_string(&file.path) {
-                analyze_file_for_refactoring(&file.path, &content, &mut suggestions);
-            }
-        }
-
-        // Sort by priority (highest first)
-        suggestions.sort_by(|a, b| b.priority.cmp(&a.priority));
-
-        // Filter by priority if requested
-        let filtered_suggestions = if params.high_priority.unwrap_or(false) {
-            suggestions.into_iter().filter(|s| s.priority >= 7).collect::<Vec<_>>()
-        } else {
-            suggestions
-        };
-
-        if filtered_suggestions.is_empty() {
-            return Json(serde_json::json!({
-                "message": "No refactoring suggestions found! Your code looks good.",
-                "suggestions": []
-            }));
-        }
-
-        // Group suggestions by type
-        let mut grouped: std::collections::HashMap<String, Vec<&RefactorSuggestion>> = std::collections::HashMap::new();
-        for suggestion in &filtered_suggestions {
-            grouped.entry(suggestion.suggestion_type.clone()).or_insert_with(Vec::new).push(suggestion);
-        }
-
-        let grouped_json: std::collections::HashMap<String, Vec<serde_json::Value>> = grouped.iter().map(|(k, v)| {
-            (k.clone(), v.iter().map(|s| {
-                serde_json::json!({
-                    "file": s.file,
-                    "line_number": s.line_number,
-                    "description": s.description,
-                    "priority": s.priority,
-                    "code_snippet": s.code_snippet,
-                    "improvement": s.improvement
-                })
-            }).collect())
-        }).collect();
-
-        Json(serde_json::json!({
-            "total_suggestions": filtered_suggestions.len(),
-            "suggestions_by_type": grouped_json
-        }))
-    }
 }
 
 #[cfg(feature = "mcp")]

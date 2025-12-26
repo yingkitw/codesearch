@@ -1,8 +1,6 @@
 // Rust example demonstrating various patterns for code search
 
 use std::collections::HashMap;
-use std::fs::File;
-use std::io::{self, BufRead, BufReader};
 
 /// A simple calculator struct
 pub struct Calculator {
@@ -54,11 +52,9 @@ impl Calculator {
 }
 
 /// Error types for calculator operations
-#[derive(Debug, thiserror::Error)]
+#[derive(Debug)]
 pub enum CalculatorError {
-    #[error("Division by zero")]
     DivisionByZero,
-    #[error("Invalid input: {0}")]
     InvalidInput(String),
 }
 

@@ -41,7 +41,7 @@ pub fn search_code(
         let cache_key = search_cache.get_cache_key(query, &path.to_string_lossy(), extensions, fuzzy);
         if let Some(cached_results) = search_cache.get(&cache_key) {
             if benchmark {
-                println!("{}", "🚀 Cache hit! Returning cached results instantly.".green().bold());
+                println!("{}", "Cache hit! Returning cached results instantly.".green().bold());
             }
             return Ok(cached_results);
         } else {
@@ -118,7 +118,7 @@ pub fn search_code(
         let processed = Arc::new(AtomicUsize::new(0));
         let processed_clone = processed.clone();
 
-        eprint!("{}", "🔍 Searching... ".cyan());
+        eprint!("{}", "Searching... ".cyan());
 
         files
             .par_iter()
@@ -126,7 +126,7 @@ pub fn search_code(
                 if cache && !get_search_cache().is_file_modified(&file_path.to_string_lossy()) {
                     let count = processed_clone.fetch_add(1, Ordering::Relaxed) + 1;
                     if count % 10 == 0 || count == files_processed {
-                        eprint!("\r{}", format!("🔍 Searching... {}/{} files", count, files_processed).cyan());
+                        eprint!("\r{}", format!("Searching... {}/{} files", count, files_processed).cyan());
                     }
                     return Vec::new();
                 }
@@ -142,7 +142,7 @@ pub fn search_code(
 
                 let count = processed_clone.fetch_add(1, Ordering::Relaxed) + 1;
                 if count % 10 == 0 || count == files_processed {
-                    eprint!("\r{}", format!("🔍 Searching... {}/{} files", count, files_processed).cyan());
+                    eprint!("\r{}", format!("Searching... {}/{} files", count, files_processed).cyan());
                 }
 
                 result
@@ -169,7 +169,7 @@ pub fn search_code(
     };
 
     if show_progress {
-        eprintln!("\r{}", format!("✅ Searched {} files", files_processed).green());
+        eprintln!("\r{}", format!("Searched {} files", files_processed).green());
     }
 
     // Flatten results
@@ -210,7 +210,7 @@ pub fn search_code(
         ).cyan().italic());
 
         if semantic {
-            println!("{}", "🧠 Semantic search enabled - enhanced context matching".blue().italic());
+            println!("{}", "Semantic search enabled - enhanced context matching".blue().italic());
         }
 
         if vs_grep {
@@ -431,7 +431,7 @@ fn compare_with_grep(query: &str, path: &str, extensions: Option<&[String]>, met
             };
 
             println!();
-            println!("{}", "📊 Performance Comparison with Grep".yellow().bold());
+            println!("{}", "Performance Comparison with Grep".yellow().bold());
             println!("{}", "─".repeat(40).yellow());
             println!("  {}: {}ms", "Code Search".green().bold(), metrics.search_time_ms);
             println!("  {}: {}ms", "Grep".blue().bold(), grep_time.as_millis());
@@ -447,7 +447,7 @@ fn compare_with_grep(query: &str, path: &str, extensions: Option<&[String]>, met
             }
         }
         Err(_) => {
-            println!("{}", "⚠️  Could not run grep comparison (grep not found)".yellow());
+            println!("{}", "Could not run grep comparison (grep not found)".yellow());
         }
     }
 }
@@ -512,6 +512,18 @@ pub fn list_files(
 
 /// Print search results with optional line numbers and ranking
 pub fn print_results(results: &[SearchResult], show_line_numbers: bool, show_ranking: bool) {
+    if results.is_empty() {
+        return;
+    }
+
+    // Calculate column widths for alignment
+    let max_file_len = results.iter().map(|r| r.file.len()).max().unwrap_or(0);
+    let max_line_len = results
+        .iter()
+        .map(|r| r.line_number.to_string().len())
+        .max()
+        .unwrap_or(0);
+
     for result in results {
         let mut highlighted_line = result.content.clone();
 
@@ -525,32 +537,35 @@ pub fn print_results(results: &[SearchResult], show_line_numbers: bool, show_ran
             }
         }
 
+        let file_padded = format!("{:<width$}", result.file, width = max_file_len);
+        let line_padded = format!("{:>width$}", result.line_number, width = max_line_len);
+
         if show_line_numbers {
             if show_ranking {
                 println!(
-                    "{}:{} [{}] {}",
-                    result.file.cyan(),
-                    result.line_number.to_string().yellow(),
+                    "{} {:>5} [{}] {}",
+                    file_padded.cyan(),
+                    line_padded.yellow(),
                     format!("{:.0}", result.score).green(),
-                    highlighted_line
+                    highlighted_line.trim()
                 );
             } else {
                 println!(
-                    "{}:{} {}",
-                    result.file.cyan(),
-                    result.line_number.to_string().yellow(),
-                    highlighted_line
+                    "{} {:>5} │ {}",
+                    file_padded.cyan(),
+                    line_padded.yellow(),
+                    highlighted_line.trim()
                 );
             }
         } else if show_ranking {
             println!(
                 "{} [{}] {}",
-                result.file.cyan(),
+                file_padded.cyan(),
                 format!("{:.0}", result.score).green(),
-                highlighted_line
+                highlighted_line.trim()
             );
         } else {
-            println!("{} {}", result.file.cyan(), highlighted_line);
+            println!("{} │ {}", file_padded.cyan(), highlighted_line.trim());
         }
     }
 }
@@ -567,7 +582,7 @@ pub fn print_search_stats(results: &[SearchResult], query: &str) {
     println!("{}", "─".repeat(40).dimmed());
     println!(
         "{} {} matches in {} files for '{}'",
-        "📊".dimmed(),
+        "-".dimmed(),
         results.len().to_string().green().bold(),
         unique_files.len().to_string().cyan().bold(),
         query.yellow()

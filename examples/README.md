@@ -6,8 +6,8 @@ This directory contains example code files in various programming languages to d
 
 ### Rust (`rust_example.rs`)
 - Demonstrates struct definitions, implementations, and methods
-- Shows error handling with `thiserror`
-- Contains test modules and async patterns
+- Shows error handling patterns
+- Contains test modules
 - Keywords: `struct`, `impl`, `fn`, `pub`, `Result`, `Error`
 
 ### Python (`python_example.py`)
@@ -21,6 +21,11 @@ This directory contains example code files in various programming languages to d
 - Event handling and DOM manipulation
 - Map data structure and array methods
 - Keywords: `class`, `function`, `async`, `await`, `const`, `let`
+
+### Dead Code Demos (`deadcode_demo.rs`, `deadcode_demo.py`)
+- Intentionally contain unused imports, functions, classes, and constants
+- Used to demonstrate the `codesearch deadcode` command
+- Compare used vs unused code patterns
 
 ### TypeScript (`typescript_example.ts`)
 - Interfaces, generics, and type annotations
@@ -125,6 +130,44 @@ codesearch search "const|CONST|config|Config" --ignore-case --line-numbers
 5. **Limit results**: Use `--max-results` to control output size
 6. **Exclude directories**: Use `--exclude` to skip build directories
 
+### Dead Code Detection Demo Files
+
+Two dedicated demo files (`deadcode_demo.rs` and `deadcode_demo.py`) contain intentional dead code:
+
+- **`deadcode_demo.rs`**: Unused imports, structs, enums, and functions
+- **`deadcode_demo.py`**: Unused imports, constants, classes, and functions
+
+```bash
+# Detect dead code in demo files
+codesearch deadcode -p examples
+
+# Detect dead code in specific language
+codesearch deadcode -p examples -e rs
+codesearch deadcode -p examples -e py
+```
+
+**Types of dead code detected:**
+
+1. **Unused Imports**: Modules imported but never referenced
+2. **Unused Functions**: Functions defined but never called
+3. **Unused Classes/Structs**: Types defined but never instantiated
+4. **Single-use Functions**: Functions called only once (inlining candidates)
+
+**Example output:**
+```
+🔍 Dead Code Detection
+──────────────────────────────
+
+⚠️  Found 5 potential dead code items:
+
+📄 examples/deadcode_demo.py
+   📥 L   5: import 'os' - Imported but never used
+   📥 L   6: import 'sys' - Imported but never used
+📄 examples/deadcode_demo.rs
+   📥 L   4: import 'HashMap' - Imported but never used
+   📥 L   6: import 'Write' - Imported but never used
+```
+
 ## Example Use Cases
 
 - **Code Review**: Find all TODO comments or error handling patterns
@@ -133,3 +176,4 @@ codesearch search "const|CONST|config|Config" --ignore-case --line-numbers
 - **Testing**: Locate all test functions and test data
 - **Security**: Search for potential security issues or hardcoded secrets
 - **Architecture**: Understand code structure and dependencies
+- **Code Cleanup**: Identify and remove dead code with `codesearch deadcode`

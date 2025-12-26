@@ -17,7 +17,7 @@ pub fn analyze_codebase(
     extensions: Option<&[String]>,
     exclude: Option<&[String]>,
 ) -> Result<(), Box<dyn std::error::Error>> {
-    println!("{}", "📊 Codebase Analysis".cyan().bold());
+    println!("{}", "Codebase Analysis".cyan().bold());
     println!("{}", "─".repeat(30).cyan());
     println!();
 
@@ -25,7 +25,7 @@ pub fn analyze_codebase(
 
     let mut total_lines = 0;
     let mut total_size = 0;
-    let mut language_stats: HashMap<String, (usize, usize, u64)> = HashMap::new(); // ext -> (files, lines, bytes)
+    let mut language_stats: HashMap<String, (usize, usize, u64)> = HashMap::new();
     let mut function_count = 0;
     let mut class_count = 0;
     let mut comment_lines = 0;
@@ -34,7 +34,6 @@ pub fn analyze_codebase(
         total_lines += file.lines;
         total_size += file.size;
 
-        // Get extension
         let ext = Path::new(&file.path)
             .extension()
             .and_then(|e| e.to_str())
@@ -46,31 +45,24 @@ pub fn analyze_codebase(
         entry.1 += file.lines;
         entry.2 += file.size;
 
-        // Count patterns
         if let Ok(content) = fs::read_to_string(&file.path) {
             if let Some(lang_info) = get_language_by_extension(&ext) {
-                // Count functions
                 for pattern in lang_info.function_patterns {
                     if let Ok(regex) = Regex::new(pattern) {
                         function_count += regex.find_iter(&content).count();
                     }
                 }
-
-                // Count classes/structures
                 for pattern in lang_info.class_patterns {
                     if let Ok(regex) = Regex::new(pattern) {
                         class_count += regex.find_iter(&content).count();
                     }
                 }
-
-                // Count comment lines
                 for pattern in lang_info.comment_patterns {
                     if let Ok(regex) = Regex::new(pattern) {
                         comment_lines += regex.find_iter(&content).count();
                     }
                 }
             } else {
-                // Fallback for unknown languages
                 function_count += count_generic_functions(&content);
                 class_count += count_generic_classes(&content);
                 comment_lines += count_generic_comments(&content);
@@ -78,15 +70,13 @@ pub fn analyze_codebase(
         }
     }
 
-    // Print overall stats
-    println!("{}", "📁 Overview".yellow().bold());
+    println!("{}", "Overview".yellow().bold());
     println!("  Total files: {}", files.len().to_string().green());
     println!("  Total lines: {}", total_lines.to_string().green());
     println!("  Total size: {}", format_size(total_size).green());
     println!();
 
-    // Print language breakdown
-    println!("{}", "🗂️  Languages".yellow().bold());
+    println!("{}", "Languages".yellow().bold());
     let mut lang_vec: Vec<_> = language_stats.iter().collect();
     lang_vec.sort_by(|a, b| b.1 .1.cmp(&a.1 .1));
 
@@ -105,8 +95,7 @@ pub fn analyze_codebase(
     }
     println!();
 
-    // Print code patterns
-    println!("{}", "📝 Code Patterns".yellow().bold());
+    println!("{}", "Code Patterns".yellow().bold());
     println!("  Functions/Methods: {}", function_count.to_string().green());
     println!("  Classes/Structs: {}", class_count.to_string().green());
     println!("  Comment lines: {}", comment_lines.to_string().green());
@@ -117,43 +106,27 @@ pub fn analyze_codebase(
     }
 
     println!();
-    println!("{}", "✨ Analysis complete!".green().italic());
+    println!("{}", "Analysis complete!".green().italic());
 
     Ok(())
 }
 
 fn count_generic_functions(content: &str) -> usize {
-    let patterns = [
-        r"fn\s+\w+",
-        r"def\s+\w+",
-        r"function\s+\w+",
-        r"func\s+\w+",
-    ];
-
-    let mut count = 0;
-    for pattern in &patterns {
-        if let Ok(regex) = Regex::new(pattern) {
-            count += regex.find_iter(content).count();
-        }
-    }
-    count
+    let patterns = [r"fn\s+\w+", r"def\s+\w+", r"function\s+\w+", r"func\s+\w+"];
+    patterns
+        .iter()
+        .filter_map(|p| Regex::new(p).ok())
+        .map(|re| re.find_iter(content).count())
+        .sum()
 }
 
 fn count_generic_classes(content: &str) -> usize {
-    let patterns = [
-        r"class\s+\w+",
-        r"struct\s+\w+",
-        r"interface\s+\w+",
-        r"trait\s+\w+",
-    ];
-
-    let mut count = 0;
-    for pattern in &patterns {
-        if let Ok(regex) = Regex::new(pattern) {
-            count += regex.find_iter(content).count();
-        }
-    }
-    count
+    let patterns = [r"class\s+\w+", r"struct\s+\w+", r"interface\s+\w+", r"trait\s+\w+"];
+    patterns
+        .iter()
+        .filter_map(|p| Regex::new(p).ok())
+        .map(|re| re.find_iter(content).count())
+        .sum()
 }
 
 fn count_generic_comments(content: &str) -> usize {
@@ -205,10 +178,8 @@ pub fn suggest_refactoring(
         }
     }
 
-    // Sort by priority (highest first)
     suggestions.sort_by(|a, b| b.priority.cmp(&a.priority));
 
-    // Filter by priority if requested
     let filtered_suggestions = if high_priority_only {
         suggestions.into_iter().filter(|s| s.priority >= 7).collect::<Vec<_>>()
     } else {
@@ -216,11 +187,10 @@ pub fn suggest_refactoring(
     };
 
     if filtered_suggestions.is_empty() {
-        println!("{}", "✨ No refactoring suggestions found! Your code looks good.".green().italic());
+        println!("{}", "No refactoring suggestions found! Your code looks good.".green().italic());
         return Ok(());
     }
 
-    // Group suggestions by type
     let mut grouped: HashMap<String, Vec<&RefactorSuggestion>> = HashMap::new();
     for suggestion in &filtered_suggestions {
         grouped.entry(suggestion.suggestion_type.clone()).or_default().push(suggestion);
@@ -228,7 +198,6 @@ pub fn suggest_refactoring(
 
     for (suggestion_type, type_suggestions) in grouped {
         println!("{}", format!("📋 {} ({})", suggestion_type, type_suggestions.len()).yellow().bold());
-        println!("{}", "─".repeat(suggestion_type.len() + 15).yellow());
 
         for suggestion in type_suggestions {
             let priority_color = match suggestion.priority {
@@ -250,8 +219,7 @@ pub fn suggest_refactoring(
         }
     }
 
-    println!("{}", format!("💡 Total suggestions: {}", filtered_suggestions.len()).cyan().bold());
-    println!("{}", "✨ Refactoring analysis completed!".green().italic());
+    println!("{}", format!("Total suggestions: {}", filtered_suggestions.len()).cyan().bold());
 
     Ok(())
 }
@@ -268,7 +236,7 @@ pub fn analyze_file_for_refactoring(
         let line_num = i + 1;
         let trimmed = line.trim();
 
-        // Long lines (>100 characters)
+        // Long lines
         if line.len() > 100 {
             suggestions.push(RefactorSuggestion {
                 file: file_path.to_string(),
@@ -308,7 +276,7 @@ pub fn analyze_file_for_refactoring(
             });
         }
 
-        // Deep nesting (multiple levels of indentation)
+        // Deep nesting
         let indent_level = line.len() - line.trim_start().len();
         if indent_level > 16 {
             suggestions.push(RefactorSuggestion {
@@ -348,7 +316,6 @@ pub fn list_supported_languages() -> Result<(), Box<dyn std::error::Error>> {
 
     let languages = get_supported_languages();
 
-    // Categorize languages
     let categories: Vec<(&str, Vec<&str>)> = vec![
         ("Systems", vec!["Rust", "C", "C++", "Zig", "V", "Nim"]),
         ("Web", vec!["JavaScript", "TypeScript", "PHP", "CSS", "XML/HTML"]),
@@ -362,24 +329,18 @@ pub fn list_supported_languages() -> Result<(), Box<dyn std::error::Error>> {
     ];
 
     for (category, category_langs) in &categories {
-        println!("{}", format!("📁 {}", category).yellow().bold());
+        println!("{}", format!("[{}]", category).yellow().bold());
         for lang_name in category_langs {
             if let Some(lang) = languages.iter().find(|l| l.name == *lang_name) {
                 let exts = lang.extensions.join(", ");
-                println!(
-                    "   {} {} ({})",
-                    "•".dimmed(),
-                    lang.name.green(),
-                    exts.dimmed()
-                );
+                println!("   {} {} ({})", "•".dimmed(), lang.name.green(), exts.dimmed());
             }
         }
         println!();
     }
 
-    // Count total
     let total = categories.iter().flat_map(|(_, langs)| langs.iter()).count();
-    println!("{}", format!("📊 Total: {} languages supported", total).cyan().bold());
+    println!("{}", format!("Total: {} languages supported", total).cyan().bold());
 
     Ok(())
 }
@@ -415,4 +376,3 @@ mod tests {
         assert!(!suggestions.is_empty());
     }
 }
-

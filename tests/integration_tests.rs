@@ -37,13 +37,13 @@ mod tests {
         
         let output = if binary_path.exists() {
             Command::new(binary_path)
-                .args(&["search", "Hello", "--path", temp_dir.path().to_str().unwrap(), "--no-auto-exclude"])
+                .args(&["search", "Hello", temp_dir.path().to_str().unwrap(), "--no-auto-exclude"])
                 .output()
                 .unwrap()
         } else {
             // Fallback to cargo run if binary doesn't exist
             Command::new("cargo")
-                .args(&["run", "--", "search", "Hello", "--path", temp_dir.path().to_str().unwrap(), "--no-auto-exclude"])
+                .args(&["run", "--", "search", "Hello", temp_dir.path().to_str().unwrap(), "--no-auto-exclude"])
             .output()
                 .unwrap()
         };
@@ -64,12 +64,12 @@ mod tests {
         
         let output = if binary_path.exists() {
             Command::new(binary_path)
-                .args(&["search", "hello", "--path", temp_dir.path().to_str().unwrap(), "--extensions", "rs,py", "--ignore-case", "--no-auto-exclude"])
+                .args(&["search", "hello", temp_dir.path().to_str().unwrap(), "--extensions", "rs,py", "--ignore-case", "--no-auto-exclude"])
                 .output()
                 .unwrap()
         } else {
             Command::new("cargo")
-                .args(&["run", "--", "search", "hello", "--path", temp_dir.path().to_str().unwrap(), "--extensions", "rs,py", "--ignore-case", "--no-auto-exclude"])
+                .args(&["run", "--", "search", "hello", temp_dir.path().to_str().unwrap(), "--extensions", "rs,py", "--ignore-case", "--no-auto-exclude"])
             .output()
                 .unwrap()
         };
@@ -93,12 +93,12 @@ mod tests {
         
         let output = if binary_path.exists() {
             Command::new(binary_path)
-                .args(&["search", "hello", "--path", temp_dir.path().to_str().unwrap(), "--ignore-case", "--no-auto-exclude"])
+                .args(&["search", "hello", temp_dir.path().to_str().unwrap(), "--ignore-case", "--no-auto-exclude"])
                 .output()
                 .unwrap()
         } else {
             Command::new("cargo")
-                .args(&["run", "--", "search", "hello", "--path", temp_dir.path().to_str().unwrap(), "--ignore-case", "--no-auto-exclude"])
+                .args(&["run", "--", "search", "hello", temp_dir.path().to_str().unwrap(), "--ignore-case", "--no-auto-exclude"])
             .output()
                 .unwrap()
         };
@@ -119,12 +119,12 @@ mod tests {
         
         let output = if binary_path.exists() {
             Command::new(binary_path)
-                .args(&["search", r"fn\s+\w+", "--path", temp_dir.path().to_str().unwrap(), "--extensions", "rs", "--no-auto-exclude"])
+                .args(&["search", r"fn\s+\w+", temp_dir.path().to_str().unwrap(), "--extensions", "rs", "--no-auto-exclude"])
                 .output()
                 .unwrap()
         } else {
             Command::new("cargo")
-                .args(&["run", "--", "search", r"fn\s+\w+", "--path", temp_dir.path().to_str().unwrap(), "--extensions", "rs", "--no-auto-exclude"])
+                .args(&["run", "--", "search", r"fn\s+\w+", temp_dir.path().to_str().unwrap(), "--extensions", "rs", "--no-auto-exclude"])
             .output()
                 .unwrap()
         };
@@ -146,12 +146,12 @@ mod tests {
         
         let output = if binary_path.exists() {
             Command::new(binary_path)
-                .args(&["files", "--path", temp_dir.path().to_str().unwrap(), "--extensions", "rs"])
+                .args(&["files", temp_dir.path().to_str().unwrap(), "--extensions", "rs"])
                 .output()
                 .unwrap()
         } else {
             Command::new("cargo")
-            .args(&["run", "--", "files", "--path", temp_dir.path().to_str().unwrap(), "--extensions", "rs"])
+            .args(&["run", "--", "files", temp_dir.path().to_str().unwrap(), "--extensions", "rs"])
             .output()
                 .unwrap()
         };
@@ -173,12 +173,12 @@ mod tests {
         
         let output = if binary_path.exists() {
             Command::new(binary_path)
-                .args(&["search", "Hello", "--path", temp_dir.path().to_str().unwrap(), "--format", "json", "--no-auto-exclude"])
+                .args(&["search", "Hello", temp_dir.path().to_str().unwrap(), "--format", "json", "--no-auto-exclude"])
                 .output()
                 .unwrap()
         } else {
             Command::new("cargo")
-                .args(&["run", "--", "search", "Hello", "--path", temp_dir.path().to_str().unwrap(), "--format", "json", "--no-auto-exclude"])
+                .args(&["run", "--", "search", "Hello", temp_dir.path().to_str().unwrap(), "--format", "json", "--no-auto-exclude"])
             .output()
                 .unwrap()
         };
@@ -363,7 +363,7 @@ fn test_special() {
     fn test_fuzzy_search() {
         let temp_dir = create_complex_test_files();
         let output = run_command(&[
-            "search", "usrmngr", "--path", temp_dir.path().to_str().unwrap(),
+            "search", "usrmngr", temp_dir.path().to_str().unwrap(),
             "--fuzzy", "--no-auto-exclude"
         ]);
 
@@ -377,7 +377,7 @@ fn test_special() {
     fn test_ranking() {
         let temp_dir = create_complex_test_files();
         let output = run_command(&[
-            "search", "user", "--path", temp_dir.path().to_str().unwrap(),
+            "search", "user", temp_dir.path().to_str().unwrap(),
             "--rank", "--no-auto-exclude"
         ]);
 
@@ -391,7 +391,7 @@ fn test_special() {
     fn test_max_results_limit() {
         let temp_dir = create_complex_test_files();
         let output = run_command(&[
-            "search", r"fn\s+test\d+", "--path", temp_dir.path().to_str().unwrap(),
+            "search", r"fn\s+test\d+", temp_dir.path().to_str().unwrap(),
             "--extensions", "rs", "--max-results", "5", "--no-auto-exclude"
         ]);
 
@@ -420,7 +420,7 @@ fn test_special() {
     fn test_exclude_directories() {
         let temp_dir = create_complex_test_files();
         let output = run_command(&[
-            "search", "User", "--path", temp_dir.path().to_str().unwrap(),
+            "search", "User", temp_dir.path().to_str().unwrap(),
             "--exclude", "src", "--no-auto-exclude"
         ]);
 
@@ -434,7 +434,7 @@ fn test_special() {
     fn test_stats_output() {
         let temp_dir = create_complex_test_files();
         let output = run_command(&[
-            "search", "User", "--path", temp_dir.path().to_str().unwrap(),
+            "search", "User", temp_dir.path().to_str().unwrap(),
             "--stats", "--no-auto-exclude"
         ]);
 
@@ -448,7 +448,7 @@ fn test_special() {
     fn test_complex_regex_pattern() {
         let temp_dir = create_complex_test_files();
         let output = run_command(&[
-            "search", r"pub\s+(struct|fn|enum)\s+\w+", "--path", temp_dir.path().to_str().unwrap(),
+            "search", r"pub\s+(struct|fn|enum)\s+\w+", temp_dir.path().to_str().unwrap(),
             "--extensions", "rs", "--no-auto-exclude"
         ]);
 
@@ -462,7 +462,7 @@ fn test_special() {
     fn test_multiple_extensions() {
         let temp_dir = create_complex_test_files();
         let output = run_command(&[
-            "search", "class", "--path", temp_dir.path().to_str().unwrap(),
+            "search", "class", temp_dir.path().to_str().unwrap(),
             "--extensions", "py,js", "--no-auto-exclude"
         ]);
 
@@ -476,7 +476,7 @@ fn test_special() {
     fn test_special_characters() {
         let temp_dir = create_complex_test_files();
         let output = run_command(&[
-            "search", "世界", "--path", temp_dir.path().to_str().unwrap(),
+            "search", "世界", temp_dir.path().to_str().unwrap(),
             "--no-auto-exclude"
         ]);
 
@@ -490,7 +490,7 @@ fn test_special() {
     fn test_empty_file_handling() {
         let temp_dir = create_complex_test_files();
         let output = run_command(&[
-            "search", "anything", "--path", temp_dir.path().to_str().unwrap(),
+            "search", "anything", temp_dir.path().to_str().unwrap(),
             "--extensions", "rs", "--no-auto-exclude"
         ]);
 
@@ -503,7 +503,7 @@ fn test_special() {
         let temp_dir = create_complex_test_files();
         // Search for TODO first
         let output_todo = run_command(&[
-            "search", "TODO", "--path", temp_dir.path().to_str().unwrap(),
+            "search", "TODO", temp_dir.path().to_str().unwrap(),
             "--ignore-case", "--no-auto-exclude"
         ]);
 
@@ -512,7 +512,7 @@ fn test_special() {
         
         // Search for FIXME
         let output_fixme = run_command(&[
-            "search", "FIXME", "--path", temp_dir.path().to_str().unwrap(),
+            "search", "FIXME", temp_dir.path().to_str().unwrap(),
             "--ignore-case", "--no-auto-exclude"
         ]);
 
@@ -550,7 +550,7 @@ fn test_special() {
     fn test_analyze_command() {
         let temp_dir = create_complex_test_files();
         let output = run_command(&[
-            "analyze", "--path", temp_dir.path().to_str().unwrap(),
+            "analyze", temp_dir.path().to_str().unwrap(),
             "--extensions", "rs,py,js"
         ]);
 
@@ -561,24 +561,10 @@ fn test_special() {
     }
 
     #[test]
-    fn test_refactor_command() {
-        let temp_dir = create_complex_test_files();
-        let output = run_command(&[
-            "refactor", "--path", temp_dir.path().to_str().unwrap(),
-            "--extensions", "rs,py,js"
-        ]);
-
-        assert!(output.status.success(), "Command failed: {}", String::from_utf8_lossy(&output.stderr));
-        let stdout = String::from_utf8(output.stdout).unwrap();
-        // Should contain refactoring suggestions or indicate no suggestions
-        assert!(!stdout.is_empty());
-    }
-
-    #[test]
     fn test_files_command_with_extensions() {
         let temp_dir = create_complex_test_files();
         let output = run_command(&[
-            "files", "--path", temp_dir.path().to_str().unwrap(),
+            "files", temp_dir.path().to_str().unwrap(),
             "--extensions", "rs,py,js"
         ]);
 
@@ -592,7 +578,7 @@ fn test_special() {
     fn test_fuzzy_threshold() {
         let temp_dir = create_complex_test_files();
         let output = run_command(&[
-            "search", "usrmngr", "--path", temp_dir.path().to_str().unwrap(),
+            "search", "usrmngr", temp_dir.path().to_str().unwrap(),
             "--fuzzy", "--fuzzy-threshold", "0.5", "--no-auto-exclude"
         ]);
 
@@ -606,7 +592,7 @@ fn test_special() {
     fn test_case_sensitive_search() {
         let temp_dir = create_complex_test_files();
         let output = run_command(&[
-            "search", "User", "--path", temp_dir.path().to_str().unwrap(),
+            "search", "User", temp_dir.path().to_str().unwrap(),
             "--no-auto-exclude"
             // Note: --ignore-case is false by default, but simple search uses ignore_case=true
             // This test uses explicit search command
@@ -622,7 +608,7 @@ fn test_special() {
     fn test_nested_directory_search() {
         let temp_dir = create_complex_test_files();
         let output = run_command(&[
-            "search", "User", "--path", temp_dir.path().to_str().unwrap(),
+            "search", "User", temp_dir.path().to_str().unwrap(),
             "--extensions", "rs", "--no-auto-exclude"
         ]);
 
@@ -636,7 +622,7 @@ fn test_special() {
     fn test_json_format_structure() {
         let temp_dir = create_complex_test_files();
         let output = run_command(&[
-            "search", "User", "--path", temp_dir.path().to_str().unwrap(),
+            "search", "User", temp_dir.path().to_str().unwrap(),
             "--format", "json", "--no-auto-exclude"
         ]);
 
@@ -658,7 +644,7 @@ fn test_special() {
     fn test_no_line_numbers_flag() {
         let temp_dir = create_complex_test_files();
         let output = run_command(&[
-            "search", "User", "--path", temp_dir.path().to_str().unwrap(),
+            "search", "User", temp_dir.path().to_str().unwrap(),
             "--no-line-numbers", "--no-auto-exclude"
         ]);
 
@@ -672,7 +658,7 @@ fn test_special() {
     fn test_multiple_patterns_in_single_file() {
         let temp_dir = create_complex_test_files();
         let output = run_command(&[
-            "search", r"(struct|class|function)\s+\w+", "--path", temp_dir.path().to_str().unwrap(),
+            "search", r"(struct|class|function)\s+\w+", temp_dir.path().to_str().unwrap(),
             "--extensions", "rs,py,js", "--no-auto-exclude"
         ]);
 

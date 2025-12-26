@@ -17,7 +17,7 @@ pub fn detect_duplicates(
     min_lines: usize,
     similarity_threshold: f64,
 ) -> Result<(), Box<dyn std::error::Error>> {
-    println!("{}", "🔍 Code Duplication Detection".cyan().bold());
+    println!("{}", "Code Duplication Detection".cyan().bold());
     println!("{}", "─".repeat(30).cyan());
     println!();
 
@@ -67,7 +67,7 @@ pub fn detect_duplicates(
 
     // Print results
     if duplicates.is_empty() {
-        println!("{}", "✨ No significant code duplication found!".green().italic());
+        println!("{}", "No significant code duplication found!".green().italic());
     } else {
         for dup in &duplicates {
             println!(
@@ -94,7 +94,7 @@ pub fn detect_duplicates(
         println!("{}", "─".repeat(50).dimmed());
         println!(
             "{} {} potential duplicates found",
-            "📊".dimmed(),
+            "-".dimmed(),
             duplicates.len().to_string().yellow().bold()
         );
     }

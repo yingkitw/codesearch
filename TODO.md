@@ -7,25 +7,22 @@
 - [x] Add interactive mode
 - [x] Add codebase analysis
 - [x] Add refactoring suggestions
-- [x] Implement MCP server support (rmcp 0.10 with 4 tools)
-- [x] Add comprehensive unit tests (89+ tests)
+- [x] Implement MCP server support (rmcp 0.10 with 3 tools: search, list, analyze)
+- [x] Add comprehensive unit tests (80+ tests)
 - [x] Add integration tests (26 tests)
 - [x] Simplify CLI usage with defaults
 - [x] Add semantic search enhancement
 - [x] Add caching system for performance
-- [x] Add favorites management
-- [x] Add search history
 - [x] Update README with comprehensive documentation
 - [x] Create architecture documentation
 - [x] Add progress indicators for long-running searches
-- [x] Add configuration file support (.codesearchrc)
 - [x] Add export functionality (CSV, Markdown)
-- [x] Add themes for output formatting (6 themes: default, dark, light, mono, ocean, forest)
 - [x] Add keyboard shortcuts in interactive mode
 - [x] Add code complexity metrics (cyclomatic & cognitive complexity)
 - [x] Add code duplication detection
+- [x] Add dead code detection
 - [x] Add comprehensive multi-language support (48 languages)
-- [x] Modularize codebase into smaller maintainable modules (13 modules)
+- [x] Modularize codebase into smaller maintainable modules (11 modules)
 
 ## 🔄 In Progress
 
