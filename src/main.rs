@@ -7,7 +7,7 @@ use colored::*;
 use std::path::PathBuf;
 
 // Use library modules
-use codesearch::{analysis, complexity, deadcode, duplicates, export, interactive};
+use codesearch::{analysis, circular, complexity, deadcode, duplicates, export, interactive};
 #[cfg(feature = "mcp")]
 use codesearch::mcp_server;
 use codesearch::search::{list_files, print_results, print_search_stats, search_code};
@@ -181,6 +181,18 @@ enum Commands {
     },
     /// Detect potentially dead/unused code
     Deadcode {
+        /// Path to analyze (default: current directory)
+        #[arg(default_value = ".")]
+        path: PathBuf,
+        /// File extensions to include (e.g., rs,py,js)
+        #[arg(short, long, value_delimiter = ',')]
+        extensions: Option<Vec<String>>,
+        /// Exclude directories (e.g., target,node_modules)
+        #[arg(long, value_delimiter = ',')]
+        exclude: Option<Vec<String>>,
+    },
+    /// Detect circular function calls
+    Circular {
         /// Path to analyze (default: current directory)
         #[arg(default_value = ".")]
         path: PathBuf,
@@ -373,6 +385,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
         Some(Commands::Deadcode { path, extensions, exclude }) => {
             deadcode::detect_dead_code(&path, extensions.as_deref(), exclude.as_deref())?;
+        }
+        Some(Commands::Circular { path, extensions, exclude }) => {
+            circular::detect_circular_calls(&path, extensions.as_deref(), exclude.as_deref())?;
         }
         Some(Commands::Languages) => {
             analysis::list_supported_languages()?;

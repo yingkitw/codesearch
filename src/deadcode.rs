@@ -10,8 +10,10 @@ use std::collections::HashMap;
 use std::fs;
 use std::path::Path;
 
+use serde::Serialize;
+
 /// Dead code detection result
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize)]
 pub struct DeadCodeItem {
     pub file: String,
     pub line_number: usize,
@@ -134,6 +136,97 @@ pub fn detect_dead_code(
     print_dead_code_results(&dead_code_items);
 
     Ok(())
+}
+
+/// Find dead code and return the results (for MCP server)
+pub fn find_dead_code(
+    path: &Path,
+    extensions: Option<&[String]>,
+    exclude: Option<&[String]>,
+) -> Result<Vec<DeadCodeItem>, Box<dyn std::error::Error>> {
+    let files = list_files(path, extensions, exclude)?;
+    
+    if files.is_empty() {
+        return Ok(Vec::new());
+    }
+
+    let mut dead_code_items: Vec<DeadCodeItem> = Vec::new();
+    let mut all_definitions: HashMap<String, (String, usize, String)> = HashMap::new();
+    let mut all_references: HashMap<String, usize> = HashMap::new();
+
+    // First pass: collect all definitions and references
+    for file in &files {
+        if let Ok(content) = fs::read_to_string(&file.path) {
+            let ext = Path::new(&file.path)
+                .extension()
+                .and_then(|e| e.to_str())
+                .unwrap_or("");
+
+            if let Some(lang) = get_language_by_extension(ext) {
+                // Extract function definitions
+                for pattern in lang.function_patterns {
+                    if let Ok(re) = Regex::new(pattern) {
+                        for (line_num, line) in content.lines().enumerate() {
+                            if let Some(caps) = re.captures(line) {
+                                if let Some(name) = extract_identifier_from_match(&caps) {
+                                    if !is_special_function(&name) {
+                                        all_definitions.insert(
+                                            name.clone(),
+                                            (file.path.clone(), line_num + 1, "function".to_string()),
+                                        );
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            // Count all identifier references
+            let identifier_re = Regex::new(r"\b([a-zA-Z_][a-zA-Z0-9_]*)\b").unwrap();
+            for cap in identifier_re.captures_iter(&content) {
+                if let Some(name) = cap.get(1) {
+                    *all_references.entry(name.as_str().to_string()).or_insert(0) += 1;
+                }
+            }
+        }
+    }
+
+    // Second pass: identify dead code
+    for (name, (file, line, item_type)) in &all_definitions {
+        let ref_count = all_references.get(name).copied().unwrap_or(0);
+        if ref_count <= 1 {
+            dead_code_items.push(DeadCodeItem {
+                file: file.clone(),
+                line_number: *line,
+                item_type: item_type.clone(),
+                name: name.clone(),
+                reason: "Only defined, never used elsewhere".to_string(),
+            });
+        } else if ref_count == 2 && item_type == "function" {
+            dead_code_items.push(DeadCodeItem {
+                file: file.clone(),
+                line_number: *line,
+                item_type: item_type.clone(),
+                name: name.clone(),
+                reason: "Used only once - consider inlining".to_string(),
+            });
+        }
+    }
+
+    // Third pass: detect other dead code patterns
+    for file in &files {
+        if let Ok(content) = fs::read_to_string(&file.path) {
+            detect_dead_code_patterns(&file.path, &content, &mut dead_code_items);
+        }
+    }
+
+    // Sort by file and line number
+    dead_code_items.sort_by(|a, b| {
+        a.file.cmp(&b.file).then(a.line_number.cmp(&b.line_number))
+    });
+
+    Ok(dead_code_items)
 }
 
 fn print_dead_code_results(items: &[DeadCodeItem]) {

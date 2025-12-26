@@ -102,6 +102,57 @@ pub fn detect_duplicates(
     Ok(())
 }
 
+/// Find duplicates and return the results (for MCP server)
+pub fn find_duplicates(
+    path: &Path,
+    extensions: Option<&[String]>,
+    exclude: Option<&[String]>,
+    min_lines: usize,
+    similarity_threshold: f64,
+) -> Result<Vec<DuplicateBlock>, Box<dyn std::error::Error>> {
+    let files = list_files(path, extensions, exclude)?;
+    let mut all_blocks: Vec<(String, usize, String)> = Vec::new();
+
+    for file in &files {
+        if let Ok(content) = fs::read_to_string(&file.path) {
+            let blocks = extract_code_blocks(&content, min_lines);
+            for (line_num, block) in blocks {
+                all_blocks.push((file.path.clone(), line_num, block));
+            }
+        }
+    }
+
+    let mut duplicates: Vec<DuplicateBlock> = Vec::new();
+
+    for i in 0..all_blocks.len() {
+        for j in (i + 1)..all_blocks.len() {
+            let (file1, line1, block1) = &all_blocks[i];
+            let (file2, line2, block2) = &all_blocks[j];
+
+            if file1 == file2 && (line1.abs_diff(*line2) < min_lines) {
+                continue;
+            }
+
+            let similarity = string_similarity(block1, block2);
+
+            if similarity >= similarity_threshold {
+                duplicates.push(DuplicateBlock {
+                    file1: file1.clone(),
+                    line1: *line1,
+                    file2: file2.clone(),
+                    line2: *line2,
+                    content: block1.chars().take(100).collect::<String>() + "...",
+                    similarity,
+                });
+            }
+        }
+    }
+
+    duplicates.sort_by(|a, b| b.similarity.partial_cmp(&a.similarity).unwrap_or(std::cmp::Ordering::Equal));
+
+    Ok(duplicates)
+}
+
 /// Extract meaningful code blocks from content
 fn extract_code_blocks(content: &str, min_lines: usize) -> Vec<(usize, String)> {
     let lines: Vec<&str> = content.lines().collect();

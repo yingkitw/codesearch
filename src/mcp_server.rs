@@ -4,7 +4,11 @@
 #[cfg(feature = "mcp")]
 use crate::search::{list_files, search_code};
 #[cfg(feature = "mcp")]
-use crate::types::{FileInfo, Match, SearchResult};
+use crate::types::{ComplexityMetrics, DuplicateBlock, FileInfo, Match, SearchResult};
+#[cfg(feature = "mcp")]
+use crate::deadcode::DeadCodeItem;
+#[cfg(feature = "mcp")]
+use crate::{circular, complexity, deadcode, duplicates, language};
 #[cfg(feature = "mcp")]
 use std::path::PathBuf;
 
@@ -48,6 +52,36 @@ impl JsonSchema for FileInfo {
 impl JsonSchema for Match {
     fn schema_name() -> std::borrow::Cow<'static, str> {
         std::borrow::Cow::Borrowed("Match")
+    }
+    fn json_schema(_generator: &mut schemars::SchemaGenerator) -> schemars::Schema {
+        schemars::Schema::default()
+    }
+}
+
+#[cfg(feature = "mcp")]
+impl JsonSchema for ComplexityMetrics {
+    fn schema_name() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed("ComplexityMetrics")
+    }
+    fn json_schema(_generator: &mut schemars::SchemaGenerator) -> schemars::Schema {
+        schemars::Schema::default()
+    }
+}
+
+#[cfg(feature = "mcp")]
+impl JsonSchema for DeadCodeItem {
+    fn schema_name() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed("DeadCodeItem")
+    }
+    fn json_schema(_generator: &mut schemars::SchemaGenerator) -> schemars::Schema {
+        schemars::Schema::default()
+    }
+}
+
+#[cfg(feature = "mcp")]
+impl JsonSchema for DuplicateBlock {
+    fn schema_name() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed("DuplicateBlock")
     }
     fn json_schema(_generator: &mut schemars::SchemaGenerator) -> schemars::Schema {
         schemars::Schema::default()
@@ -103,6 +137,74 @@ pub struct ListFilesParams {
 #[cfg(feature = "mcp")]
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 pub struct AnalyzeCodebaseParams {
+    /// Directory to analyze (default: current directory)
+    #[serde(default)]
+    pub path: Option<String>,
+    /// File extensions to include (e.g., ["rs", "py", "js"])
+    #[serde(default)]
+    pub extensions: Option<Vec<String>>,
+    /// Exclude directories (e.g., ["target", "node_modules"])
+    #[serde(default)]
+    pub exclude: Option<Vec<String>>,
+}
+
+#[cfg(feature = "mcp")]
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+pub struct ComplexityParams {
+    /// Directory to analyze (default: current directory)
+    #[serde(default)]
+    pub path: Option<String>,
+    /// File extensions to include (e.g., ["rs", "py", "js"])
+    #[serde(default)]
+    pub extensions: Option<Vec<String>>,
+    /// Exclude directories (e.g., ["target", "node_modules"])
+    #[serde(default)]
+    pub exclude: Option<Vec<String>>,
+    /// Show only files above complexity threshold
+    #[serde(default)]
+    pub threshold: Option<u32>,
+    /// Sort by complexity (highest first)
+    #[serde(default)]
+    pub sort: Option<bool>,
+}
+
+#[cfg(feature = "mcp")]
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+pub struct DuplicatesParams {
+    /// Directory to analyze (default: current directory)
+    #[serde(default)]
+    pub path: Option<String>,
+    /// File extensions to include (e.g., ["rs", "py", "js"])
+    #[serde(default)]
+    pub extensions: Option<Vec<String>>,
+    /// Exclude directories (e.g., ["target", "node_modules"])
+    #[serde(default)]
+    pub exclude: Option<Vec<String>>,
+    /// Minimum lines for a duplicate block (default: 3)
+    #[serde(default)]
+    pub min_lines: Option<usize>,
+    /// Similarity threshold 0.0-1.0 (default: 0.9)
+    #[serde(default)]
+    pub similarity: Option<f64>,
+}
+
+#[cfg(feature = "mcp")]
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+pub struct DeadcodeParams {
+    /// Directory to analyze (default: current directory)
+    #[serde(default)]
+    pub path: Option<String>,
+    /// File extensions to include (e.g., ["rs", "py", "js"])
+    #[serde(default)]
+    pub extensions: Option<Vec<String>>,
+    /// Exclude directories (e.g., ["target", "node_modules"])
+    #[serde(default)]
+    pub exclude: Option<Vec<String>>,
+}
+
+#[cfg(feature = "mcp")]
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+pub struct CircularParams {
     /// Directory to analyze (default: current directory)
     #[serde(default)]
     pub path: Option<String>,
@@ -269,6 +371,171 @@ impl CodeSearchMcpService {
             "largest_files": largest_files,
             "average_lines_per_file": total_lines as f64 / total_files as f64,
             "average_size_per_file": total_size as f64 / total_files as f64
+        }))
+    }
+
+    /// Analyze code complexity metrics (cyclomatic and cognitive complexity)
+    #[tool(description = "Analyze code complexity metrics including cyclomatic and cognitive complexity for each file")]
+    pub async fn analyze_complexity(
+        &self,
+        params: Parameters<ComplexityParams>,
+    ) -> Json<serde_json::Value> {
+        let params = params.0;
+        let path_buf = PathBuf::from(params.path.as_deref().unwrap_or("."));
+        let threshold = params.threshold;
+        let sort = params.sort.unwrap_or(false);
+        
+        let files = list_files(
+            &path_buf,
+            params.extensions.as_deref(),
+            params.exclude.as_deref(),
+        ).unwrap_or_default();
+        
+        let mut results: Vec<serde_json::Value> = files.iter().filter_map(|file| {
+            if let Ok(content) = std::fs::read_to_string(&file.path) {
+                let metrics = complexity::calculate_file_complexity(&file.path, &content);
+                Some(serde_json::json!({
+                    "file_path": metrics.file_path,
+                    "cyclomatic_complexity": metrics.cyclomatic_complexity,
+                    "cognitive_complexity": metrics.cognitive_complexity,
+                    "lines_of_code": metrics.lines_of_code,
+                    "function_count": metrics.function_count,
+                    "max_nesting_depth": metrics.max_nesting_depth
+                }))
+            } else {
+                None
+            }
+        }).collect();
+        
+        // Filter by threshold
+        if let Some(t) = threshold {
+            results.retain(|m| {
+                let cyc = m.get("cyclomatic_complexity").and_then(|v| v.as_u64()).unwrap_or(0) as u32;
+                let cog = m.get("cognitive_complexity").and_then(|v| v.as_u64()).unwrap_or(0) as u32;
+                cyc >= t || cog >= t
+            });
+        }
+        
+        // Sort by complexity
+        if sort {
+            results.sort_by(|a, b| {
+                let a_cyc = a.get("cyclomatic_complexity").and_then(|v| v.as_u64()).unwrap_or(0);
+                let a_cog = a.get("cognitive_complexity").and_then(|v| v.as_u64()).unwrap_or(0);
+                let b_cyc = b.get("cyclomatic_complexity").and_then(|v| v.as_u64()).unwrap_or(0);
+                let b_cog = b.get("cognitive_complexity").and_then(|v| v.as_u64()).unwrap_or(0);
+                let a_max = a_cyc.max(a_cog);
+                let b_max = b_cyc.max(b_cog);
+                b_max.cmp(&a_max)
+            });
+        }
+        
+        Json(serde_json::json!({
+            "files_analyzed": results.len(),
+            "results": results
+        }))
+    }
+
+    /// Detect code duplication in the codebase
+    #[tool(description = "Detect similar or duplicated code blocks across files")]
+    pub async fn detect_duplicates(
+        &self,
+        params: Parameters<DuplicatesParams>,
+    ) -> Json<serde_json::Value> {
+        let params = params.0;
+        let path_buf = PathBuf::from(params.path.as_deref().unwrap_or("."));
+        let min_lines = params.min_lines.unwrap_or(3);
+        let similarity = params.similarity.unwrap_or(0.9);
+        
+        let duplicates = duplicates::find_duplicates(
+            &path_buf,
+            params.extensions.as_deref(),
+            params.exclude.as_deref(),
+            min_lines,
+            similarity,
+        ).unwrap_or_default();
+        
+        Json(serde_json::json!({
+            "total_duplicates": duplicates.len(),
+            "duplicates": duplicates.iter().map(|d| {
+                serde_json::json!({
+                    "file1": d.file1,
+                    "line1": d.line1,
+                    "file2": d.file2,
+                    "line2": d.line2,
+                    "similarity": d.similarity,
+                    "content": d.content
+                })
+            }).collect::<Vec<_>>()
+        }))
+    }
+
+    /// Detect potentially dead/unused code
+    #[tool(description = "Detect potentially dead or unused code including unused imports, functions, and classes")]
+    pub async fn detect_deadcode(
+        &self,
+        params: Parameters<DeadcodeParams>,
+    ) -> Json<serde_json::Value> {
+        let params = params.0;
+        let path_buf = PathBuf::from(params.path.as_deref().unwrap_or("."));
+        
+        let items = deadcode::find_dead_code(
+            &path_buf,
+            params.extensions.as_deref(),
+            params.exclude.as_deref(),
+        ).unwrap_or_default();
+
+        Json(serde_json::json!({
+            "total_items": items.len(),
+            "dead_code": items.iter().map(|item| {
+                serde_json::json!({
+                    "file": item.file,
+                    "line_number": item.line_number,
+                    "item_type": item.item_type,
+                    "name": item.name,
+                    "reason": item.reason
+                })
+            }).collect::<Vec<_>>()
+        }))
+    }
+
+    /// List all supported programming languages
+    #[tool(description = "List all programming languages supported by the code search tool")]
+    pub async fn list_languages(&self) -> Json<serde_json::Value> {
+        let langs = language::get_supported_languages();
+        Json(serde_json::json!({
+            "total_languages": langs.len(),
+            "languages": langs.iter().map(|lang| {
+                serde_json::json!({
+                    "name": lang.name,
+                    "extensions": lang.extensions,
+                })
+            }).collect::<Vec<_>>()
+        }))
+    }
+
+    /// Detect circular function calls (cycles in the call graph)
+    #[tool(description = "Detect circular function calls and recursive call chains in the codebase")]
+    pub async fn detect_circular(
+        &self,
+        params: Parameters<CircularParams>,
+    ) -> Json<serde_json::Value> {
+        let params = params.0;
+        let path_buf = PathBuf::from(params.path.as_deref().unwrap_or("."));
+        
+        let cycles = circular::find_circular_calls(
+            &path_buf,
+            params.extensions.as_deref(),
+            params.exclude.as_deref(),
+        ).unwrap_or_default();
+        
+        Json(serde_json::json!({
+            "total_cycles": cycles.len(),
+            "circular_calls": cycles.iter().map(|cycle| {
+                serde_json::json!({
+                    "chain": cycle.chain,
+                    "files": cycle.files
+                })
+            }).collect::<Vec<_>>()
         }))
     }
 

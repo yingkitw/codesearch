@@ -4,7 +4,7 @@
 
 use crate::search::{print_results, print_search_stats, search_code};
 use crate::types::SearchResult;
-use crate::{analysis, complexity, deadcode, duplicates, export};
+use crate::{analysis, circular, complexity, deadcode, duplicates, export};
 use colored::*;
 use std::io::{self, Write};
 use std::path::Path;
@@ -265,6 +265,13 @@ pub fn run(
                     current_exclude.as_deref(),
                 )?;
             }
+            "circular" | "cycle" | "cycles" => {
+                circular::detect_circular_calls(
+                    path,
+                    current_extensions.as_deref(),
+                    current_exclude.as_deref(),
+                )?;
+            }
             "languages" | "langs" => {
                 analysis::list_supported_languages()?;
             }
@@ -329,6 +336,7 @@ fn print_help() {
     println!("  complexity - Code complexity");
     println!("  duplicates - Duplicate detection");
     println!("  deadcode   - Dead code detection");
+    println!("  circular   - Circular call detection");
     println!("  languages  - Supported languages");
     println!();
     println!("{}", "Other:".yellow().bold());

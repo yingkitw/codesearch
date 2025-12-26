@@ -12,6 +12,7 @@
 
 pub mod analysis;
 pub mod cache;
+pub mod circular;
 pub mod complexity;
 pub mod deadcode;
 pub mod duplicates;
@@ -24,10 +25,11 @@ pub mod types;
 
 // Re-export commonly used items at the crate root
 pub use search::{list_files, print_results, print_search_stats, search_code};
-pub use types::{ComplexityMetrics, FileInfo, Match, RefactorSuggestion, SearchResult};
+pub use types::{ComplexityMetrics, DuplicateBlock, FileInfo, Match, RefactorSuggestion, SearchResult};
 pub use analysis::analyze_codebase;
 pub use complexity::{calculate_file_complexity, calculate_cyclomatic_complexity, calculate_cognitive_complexity};
-pub use deadcode::detect_dead_code;
-pub use duplicates::detect_duplicates;
+pub use circular::{detect_circular_calls, find_circular_calls, CircularCall};
+pub use deadcode::{detect_dead_code, find_dead_code, DeadCodeItem};
+pub use duplicates::{detect_duplicates, find_duplicates};
 pub use language::{get_supported_languages, LanguageInfo};
 

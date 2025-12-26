@@ -67,7 +67,7 @@ pub struct SearchMetrics {
 }
 
 /// Duplicate code block information
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize)]
 pub struct DuplicateBlock {
     pub file1: String,
     pub line1: usize,
