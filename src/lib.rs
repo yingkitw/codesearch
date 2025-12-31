@@ -13,6 +13,8 @@
 pub mod analysis;
 pub mod cache;
 pub mod circular;
+#[cfg(test)]
+mod circular_tests;
 pub mod complexity;
 #[cfg(test)]
 mod complexity_tests;

@@ -164,7 +164,7 @@ fn extract_calls_from_function_body(content: &str, start_line: usize) -> HashSet
 }
 
 /// DFS to find cycles
-fn find_cycles_dfs(
+pub(crate) fn find_cycles_dfs(
     node: &str,
     graph: &HashMap<String, (String, HashSet<String>)>,
     visited: &mut HashSet<String>,
@@ -209,7 +209,7 @@ fn find_cycles_dfs(
 }
 
 /// Deduplicate cycles (same cycle starting from different nodes)
-fn deduplicate_cycles(cycles: Vec<CircularCall>) -> Vec<CircularCall> {
+pub(crate) fn deduplicate_cycles(cycles: Vec<CircularCall>) -> Vec<CircularCall> {
     let mut seen: HashSet<String> = HashSet::new();
     let mut unique = Vec::new();
 
@@ -229,7 +229,7 @@ fn deduplicate_cycles(cycles: Vec<CircularCall>) -> Vec<CircularCall> {
 }
 
 /// Format a cycle chain for display
-fn format_cycle(chain: &[String]) -> String {
+pub(crate) fn format_cycle(chain: &[String]) -> String {
     if chain.is_empty() {
         return String::new();
     }
