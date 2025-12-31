@@ -20,9 +20,16 @@
 - [x] Add keyboard shortcuts in interactive mode
 - [x] Add code complexity metrics (cyclomatic & cognitive complexity)
 - [x] Add code duplication detection
-- [x] Add dead code detection
+- [x] Add dead code detection with enhanced capabilities:
+  - Unused variables and constants detection
+  - Unreachable code detection (after return/break/continue)
+  - Empty function detection (supports Python, Rust, JS, etc.)
+  - TODO/FIXME/HACK/XXX/BUG marker detection
+  - Commented-out code detection
+  - Unused import detection
 - [x] Add comprehensive multi-language support (48 languages)
-- [x] Modularize codebase into smaller maintainable modules (11 modules)
+- [x] Modularize codebase into smaller maintainable modules (14 modules)
+- [x] Refactor deadcode.rs into modular structure (4 sub-modules for better maintainability)
 
 ## 🔄 In Progress
 

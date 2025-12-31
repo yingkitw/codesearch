@@ -1,9 +1,9 @@
 [package]
 name = "codesearch"
-version = "0.1.2"
+version = "0.1.3"
 edition = "2024"
 authors = ["Ying Kit WONG"]
-description = "A fast CLI tool for searching codebases"
+description = "A fast, intelligent CLI tool with multiple search modes (regex, fuzzy, semantic), code analysis, and dead code detection for 48+ languages"
 license = "Apache-2.0"
 
 [lib]

@@ -38,6 +38,7 @@ graph TB
     Main[main.rs<br/>CLI & Entry Point] --> Search[search.rs<br/>Core Search]
     Main --> Analysis[analysis.rs<br/>Codebase Analysis]
     Main --> Complexity[complexity.rs<br/>Complexity Metrics]
+    Main --> Deadcode[deadcode.rs<br/>Dead Code Detection]
     Main --> Duplicates[duplicates.rs<br/>Duplication Detection]
     Main --> Favorites[favorites.rs<br/>Favorites & History]
     Main --> Export[export.rs<br/>Export CSV/MD]
@@ -59,13 +60,18 @@ graph TB
     MCP --> Analysis
 ```
 
-### Module Descriptions (13 modules, ~4100 LOC total)
+### Module Descriptions (13 modules, ~4500 LOC total)
 
 | Module | Lines | Description |
 |--------|-------|-------------|
 | `main.rs` | 699 | CLI entry point, interactive mode |
+| **`deadcode/`** | **685** | **Enhanced dead code detection (modularized)** |
+| ├─ `mod.rs` | 200 | Main detection logic and public API |
+| ├─ `detectors.rs` | 340 | Individual detection functions (6+ types) |
+| ├─ `helpers.rs` | 130 | Utility functions and validators |
+| └─ `types.rs` | 15 | Data structures (DeadCodeItem) |
 | `search.rs` | 645 | Core search engine, parallel processing |
-| `language.rs` | 506 | 48 language definitions with patterns |
+| `language.rs` | 510 | 48 language definitions with patterns |
 | `analysis.rs` | 418 | Codebase metrics, refactoring suggestions |
 | `mcp_server.rs` | 375 | MCP server integration |
 | `complexity.rs` | 308 | Cyclomatic & cognitive complexity |
@@ -74,6 +80,7 @@ graph TB
 | `export.rs` | 185 | CSV and Markdown export |
 | `config.rs` | 183 | Configuration file support |
 | `theme.rs` | 179 | 6 output themes |
+| `parser.rs` | 176 | Code parsing utilities |
 | `cache.rs` | 125 | Thread-safe search cache |
 | `types.rs` | 112 | Shared data structures |
 
@@ -168,7 +175,63 @@ sequenceDiagram
 - `analyze_file_for_refactoring()`: File-level analysis
 - `suggest_refactoring()`: Refactoring recommendations
 
-### 5. MCP Server (`mcp_server.rs`)
+### 5. Dead Code Detection Engine (`deadcode/`)
+
+**Modular Structure** (following SoC and KISS principles):
+
+The dead code detection module has been refactored into focused sub-modules:
+
+```
+deadcode/
+├── mod.rs          # Main detection logic, orchestration, output formatting
+├── detectors.rs    # Individual detection functions (6+ detection types)
+├── helpers.rs      # Utility functions, validators, string operations
+└── types.rs        # Data structures (DeadCodeItem)
+```
+
+**Responsibilities:**
+- Detect unused variables and constants
+- Identify unreachable code after return statements
+- Find empty functions (supports brace-based and indentation-based languages)
+- Flag TODO/FIXME/HACK/XXX/BUG markers
+- Detect commented-out code
+- Identify unused imports
+
+**Key Functions:**
+
+*In `mod.rs`:*
+- `detect_dead_code()`: CLI entry point with formatted output
+- `find_dead_code()`: Main detection orchestration
+- `print_dead_code_results()`: Result formatting
+
+*In `detectors.rs`:*
+- `detect_unused_variables()`: Variable usage analysis
+- `detect_unreachable_code()`: Control flow analysis
+- `detect_empty_functions()`: Empty function detection (multi-language)
+- `detect_todo_fixme()`: Marker detection
+- `detect_dead_code_patterns()`: Pattern-based detection
+
+*In `helpers.rs`:*
+- `is_special_function()`: Function name validation
+- `is_commented_out_code()`: Code comment detection
+- `extract_import_name()`: Import statement parsing
+- `truncate_string()`: String formatting
+
+**Detection Types:**
+- **Unused Variables**: Detects `let`, `const`, `var`, `:=`, `<-` patterns
+- **Unreachable Code**: Identifies code after return statements
+- **Empty Functions**: Handles both `{}` and `:` (Python) syntax
+- **TODO Markers**: Finds TODO, FIXME, HACK, XXX, BUG comments
+- **Commented Code**: Detects commented-out function/variable declarations
+- **Unused Imports**: Tracks import usage across files
+
+**Benefits of Modularization:**
+- **Maintainability**: Each sub-module has a single, clear responsibility
+- **Testability**: Tests are co-located with their respective modules
+- **Extensibility**: New detection types can be added to `detectors.rs` without affecting other code
+- **Readability**: Smaller files (~130-340 LOC each) are easier to understand
+
+### 6. MCP Server (`mcp_server.rs`)
 
 **Responsibilities:**
 - Expose code search as MCP tools
@@ -246,7 +309,7 @@ struct SearchCache {
 
 ## Testing Architecture
 
-### Unit Tests (40+ tests across modules)
+### Unit Tests (49+ tests across modules)
 - Each module contains its own unit tests
 - Located in respective module files (`search.rs`, `analysis.rs`, etc.)
 - Test individual functions in isolation
@@ -256,6 +319,14 @@ struct SearchCache {
 - Located in `tests/integration_tests.rs` (26 tests)
 - Test CLI commands end-to-end
 - Verify output format and behavior
+
+### Dead Code Detection Tests (11 tests)
+- `test_detect_unused_variables`: Variable usage tracking
+- `test_detect_unreachable_code`: Control flow analysis
+- `test_detect_empty_functions`: Multi-language empty function detection
+- `test_detect_todo_fixme`: Marker detection
+- `test_multi_language_support`: Python/Rust compatibility
+- Additional tests for edge cases and patterns
 
 ## Dependencies
 

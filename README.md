@@ -1,111 +1,64 @@
-# Code Search
+# CodeSearch
 
-A fast, intelligent CLI tool for searching and analyzing codebases, built in Rust. Designed as a **code-aware supplement to AI agents and LLMs**, providing precise structural understanding that semantic search cannot deliver.
+**Fast, intelligent code search and analysis for 48+ languages.**
+
+Find what you need in seconds: functions, classes, duplicates, dead code, complexity issues.
 
 [![Rust](https://img.shields.io/badge/rust-1.70+-orange.svg)](https://www.rust-lang.org)
 [![License: Apache-2.0](https://img.shields.io/badge/License-Apache--2.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
 
-## 🎯 Why Code Search Matters for AI Agents
+## What Can You Search & Detect?
 
-**The Problem**: LLMs and RAG systems treat code as text, losing critical structural information which can be provided by search, static analysis of the code.
+### 🔍 **Search Capabilities**
 
-**The Solution**: Code Search provides **structured, precise code intelligence** that agents can trust:
+| What | Example | Use Case |
+|------|---------|----------|
+| **Functions** | `codesearch "fn authenticate" -e rs` | Find where authentication logic lives |
+| **Classes** | `codesearch "class User" -e py` | Locate data models |
+| **TODO/FIXME** | `codesearch "TODO\|FIXME" .` | Track technical debt |
+| **Imports** | `codesearch "^import" -e js` | Understand dependencies |
+| **Patterns** | `codesearch "async.*await" --fuzzy` | Find async code (handles typos) |
+| **Exact Text** | `codesearch "deprecated_function"` | Find all usages before refactoring |
 
-```
-┌─────────────────────────────────────────────────────────────────┐
-│                     AI AGENT / LLM                              │
-│  "I need to understand the authentication module"               │
-└──────────────────────────┬──────────────────────────────────────┘
-                           │
-         ┌─────────────────┴─────────────────┐
-         │                                   │
-    ┌────▼────┐                        ┌─────▼─────┐
-    │   RAG   │                        │ CodeSearch│
-    │ Semantic│                        │ Structural│
-    └────┬────┘                        └─────┬─────┘
-         │                                   │
-    "Files about                      "auth.rs: L15-45
-     authentication"                   fn authenticate()
-     (fuzzy, chunked)                  fn verify_token()
-                                       3 callers, 2 deps"
-                                       (precise, complete)
-```
+**Supports:** Regex, fuzzy matching, case-insensitive, multi-language (48+ languages)
 
-## 🧠 Key Capabilities
+### 🔎 **Code Quality Detection**
 
-### 1. **Precise Pattern Matching** (Not Semantic Guessing)
+| What | Command | Value |
+|------|---------|-------|
+| **Dead Code** | `codesearch deadcode` | Find unused functions, variables, imports, empty functions |
+| **Duplicates** | `codesearch duplicates` | Identify copy-paste code (Type-1/2/3 clones) |
+| **Complexity** | `codesearch complexity` | Spot overly complex functions (cyclomatic/cognitive) |
+| **Circular Deps** | `codesearch circular` | Detect circular dependencies |
 
-| What You Need | RAG/Embeddings | Code Search |
-|---------------|----------------|-------------|
-| Find `fn authenticate` | Returns similar functions | Returns exact function + line number |
-| Find all TODO comments | Misses non-standard formats | Regex: `TODO\|FIXME\|HACK` catches all |
-| Find unused imports | Cannot detect | Analyzes actual usage |
-| Rename `oldFunc` → `newFunc` | Suggests similar names | Finds every exact occurrence |
+### 💡 **Real-World Use Cases**
 
-### 2. **Language-Aware Intelligence** (48 Languages)
-
+**Before Refactoring:**
 ```bash
-# Each language has tailored patterns
-codesearch "fn\\s+\\w+" -e rs      # Rust functions
-codesearch "def\\s+\\w+" -e py      # Python functions  
-codesearch "async\\s+function" -e js # JS async functions
+# Find all usages of old function
+codesearch "oldAuthMethod" .
+# Result: Found in 12 files, 23 occurrences
 ```
 
-**Understands:**
-- Function definitions, class structures, imports
-- Comment patterns (single-line, multi-line, doc comments)
-- Language-specific syntax (traits, interfaces, decorators)
-
-### 3. **Code Quality Analysis**
-
-| Analysis | What It Finds |
-|----------|---------------|
-| **Complexity** | Cyclomatic & cognitive complexity scores |
-| **Dead Code** | Unused imports, functions, classes |
-| **Duplicates** | Similar code blocks (DRY violations) |
-
-### 4. **MCP Server for Agent Integration**
-
-Exposes code intelligence as tools that AI agents can call:
-
+**Code Review:**
 ```bash
-cargo run --features mcp -- mcp-server
+# Check for technical debt
+codesearch deadcode ./src
+# Result: 5 unused functions, 12 TODO comments
 ```
 
-**Available Tools:**
-- `search_code` - Find patterns with fuzzy/regex support
-- `list_files` - Enumerate codebase with filters
-- `analyze_codebase` - Get metrics and statistics
-
-## 🔄 How It Complements RAG & LLMs
-
-| Aspect | RAG Alone | + Code Search |
-|--------|-----------|---------------|
-| **Find function** | "Similar to auth..." | Exact: `auth.rs:L42` |
-| **Count usages** | "Mentioned several times" | Precise: "Called 7 times in 3 files" |
-| **Find all usages** | Suggests changes | Validates all occurrences found |
-| **Dead code** | Cannot detect | Lists unused with line numbers |
-| **Complexity** | No metrics | Cyclomatic score: 15 |
-
-### The Hybrid Approach
-
+**Understanding Codebase:**
+```bash
+# Find all authentication-related code
+codesearch "auth" -e rs,py --rank
+# Result: Ranked by relevance, with line numbers
 ```
-┌────────────────────────────────────────────────────────────────────┐
-│  User: "Help me understand and improve the auth module"           │
-└────────────────────────────────────────────────────────────────────┘
-                                │
-                ┌───────────────┼───────────────┐
-                ▼               ▼               ▼
-         ┌──────────┐    ┌──────────┐    ┌──────────┐
-         │   RAG    │    │ CodeSearch│   │  LLM     │
-         │ Semantic │    │ Structural│   │ Reasoning│
-         └────┬─────┘    └─────┬────┘    └────┬─────┘
-              │                │              │
-      "Auth handles       "auth.rs:         "Based on the
-       user login,         fn login() L12    structure, I
-       sessions..."        fn verify() L45   recommend..."
-                           complexity: 18
-                           dead code: 2
+
+**Quality Check:**
+```bash
+# Find duplicated code
+codesearch duplicates --min-lines 5
+# Result: 8 duplicate blocks (90%+ similar)
 ```
 
 ## 🚀 Quick Start
@@ -129,26 +82,59 @@ codesearch duplicates           # Find similar code
 codesearch deadcode             # Find unused code
 ```
 
-## ✨ Features
+## Why CodeSearch?
 
-- **Fast regex search** with exact line-level precision
-- **Fuzzy matching** for typo tolerance
-- **48 language support** with syntax awareness
-- **Interactive REPL** for exploratory analysis
-- **Code metrics** - complexity, duplication, dead code
-- **Export** results to CSV or Markdown
-- **MCP server** for AI agent integration
-- **Parallel processing** for large codebases
+**Fast & Precise**
+- Parallel processing (10x faster than grep)
+- Exact line numbers, not fuzzy guesses
+- Smart caching for repeated searches
 
-## 🏗️ Installation
+**Language-Aware**
+- 48+ languages supported
+- Understands functions, classes, imports
+- Syntax-specific patterns
+
+**Quality Focused**
+- Detect dead code before it ships
+- Find duplicates to improve DRY
+- Measure complexity to guide refactoring
+
+**Developer Friendly**
+- Interactive REPL mode
+- Export to CSV/Markdown
+- MCP server for AI agents
+
+## Installation
 
 ```bash
 git clone https://github.com/yingkitw/codesearch.git
 cd codesearch
 cargo build --release
 
-# With MCP server support for AI agents
+# Optional: MCP server for AI agents
 cargo build --release --features mcp
+```
+
+## Common Options
+
+```bash
+# Filter by file type
+codesearch "pattern" -e rs,py,js
+
+# Exclude directories
+codesearch "pattern" -x target,node_modules
+
+# Case-insensitive
+codesearch "pattern" -i
+
+# Fuzzy matching (handles typos)
+codesearch "patern" --fuzzy
+
+# Rank by relevance
+codesearch "pattern" --rank
+
+# Export results
+codesearch "pattern" --export csv
 ```
 
 ## 📖 Usage Examples
@@ -180,9 +166,10 @@ codesearch analyze
 codesearch complexity --threshold 15 --sort
 # Output: Files ranked by cyclomatic/cognitive complexity
 
-# Dead code detection
+# Dead code detection (enhanced with 6+ detection types)
 codesearch deadcode -e rs,py,js
-# Output: Unused imports, functions, classes
+# Output: Unused variables, unreachable code, empty functions, 
+#         TODO/FIXME markers, commented code, unused imports
 
 # Duplicate detection
 codesearch duplicates --similarity 0.8
@@ -238,14 +225,21 @@ cargo run --features mcp -- mcp-server
 🔍 Dead Code Detection
 ──────────────────────────────
 
-⚠️  Found 5 potential dead code items:
+⚠️  Found 12 potential dead code items:
 
-📄 examples/deadcode_demo.rs
-   📥 L   4: import 'HashMap' - Imported but never used
-   📥 L   6: import 'Write' - Imported but never used
+📄 src/example.rs
+   [var] L  10: variable 'unused_var' - Variable declared but never used
+   [!]   L  25: unreachable - Code after return statement is unreachable
+   [∅]   L  42: empty_helper - Empty function with no implementation
+   [?]   L  58: // TODO: implement this - TODO marker - incomplete implementation
+   [imp] L  72: import 'HashMap' - Imported but never used
 
 📊 Summary:
-   • import: 5
+   • variable: 3
+   • unreachable: 2
+   • empty: 2
+   • todo: 3
+   • import: 2
 ```
 
 ### Complexity Analysis
@@ -262,78 +256,16 @@ cargo run --features mcp -- mcp-server
     Cyclomatic: 28  Cognitive: 22  Lines: 378
 ```
 
-## 🔧 Architecture
+## Supported Languages
 
-```
-┌─────────────────────────────────────────────────────────────┐
-│                         CLI Layer                            │
-│  main.rs (358 LOC) - Argument parsing, command routing       │
-│  interactive.rs (350 LOC) - REPL interface                   │
-└─────────────────────────────────────────────────────────────┘
-                              │
-┌─────────────────────────────────────────────────────────────┐
-│                      Core Engine                             │
-│  search.rs (645 LOC) - Pattern matching, fuzzy, ranking      │
-│  language.rs (509 LOC) - 48 language definitions             │
-└─────────────────────────────────────────────────────────────┘
-                              │
-┌─────────────────────────────────────────────────────────────┐
-│                     Analysis Layer                           │
-│  analysis.rs (378 LOC) - Codebase metrics                   │
-│  complexity.rs (308 LOC) - Cyclomatic/cognitive complexity   │
-│  deadcode.rs (373 LOC) - Unused code detection              │
-│  duplicates.rs (196 LOC) - Similar code detection           │
-└─────────────────────────────────────────────────────────────┘
-                              │
-┌─────────────────────────────────────────────────────────────┐
-│                    Integration Layer                         │
-│  mcp_server.rs (295 LOC) - MCP protocol for AI agents       │
-│  export.rs (185 LOC) - CSV/Markdown output                  │
-│  cache.rs (127 LOC) - Result caching                        │
-└─────────────────────────────────────────────────────────────┘
-```
+48+ languages including: Rust, Python, JavaScript, TypeScript, Go, Java, C/C++, Ruby, PHP, Swift, Kotlin, and more.
 
-**11 modules, ~3,800 lines of Rust code**
+See [ARCHITECTURE.md](ARCHITECTURE.md) for technical details.
 
-## 🧪 Testing
-
-```bash
-# Run all tests (84 total)
-cargo test --features mcp
-
-# Unit tests: 35 (core functionality)
-# Integration tests: 26 (CLI commands)  
-# MCP tests: 23 (server tools)
-```
-
-## ⚡ Performance
-
-- **10x faster** than grep for complex patterns
-- **Parallel processing** with rayon
-- **Memory efficient** streaming for large files
-- **Compiled regex** patterns cached
-- **Smart defaults** exclude build directories
-
-## 📚 Documentation
-
-- [README.md](README.md) - This guide
-- [ARCHITECTURE.md](ARCHITECTURE.md) - System design
-- [TODO.md](TODO.md) - Roadmap
-- [examples/](examples/) - Code samples with dead code demos
-
-## 🤝 Contributing
-
-1. Fork the repository
-2. Create a feature branch
-3. Test: `cargo test --features mcp`
-4. Submit a pull request
-
-## 📄 License
+## License
 
 Apache-2.0 License
 
 ---
 
-**Built with ❤️ in Rust** | **Precise** | **Fast** | **Agent-Ready**
-
-*"RAG tells you about code. Code Search shows you the code."*
+**Built with Rust** • Fast • Precise • 48+ Languages

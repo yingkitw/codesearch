@@ -9,7 +9,7 @@ use std::path::PathBuf;
 // Use library modules
 use codesearch::{analysis, circular, complexity, deadcode, duplicates, export, interactive};
 #[cfg(feature = "mcp")]
-use codesearch::mcp_server;
+use codesearch::mcp;
 use codesearch::search::{list_files, print_results, print_search_stats, search_code};
 
 #[derive(Parser)]
@@ -397,7 +397,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             {
                 use tokio::runtime::Runtime;
                 let rt = Runtime::new()?;
-                rt.block_on(mcp_server::run_mcp_server())?;
+                rt.block_on(mcp::start_mcp_server())?;
             }
             #[cfg(not(feature = "mcp"))]
             {

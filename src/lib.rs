@@ -14,14 +14,19 @@ pub mod analysis;
 pub mod cache;
 pub mod circular;
 pub mod complexity;
+#[cfg(test)]
+mod complexity_tests;
 pub mod deadcode;
 pub mod duplicates;
 pub mod export;
 pub mod interactive;
 pub mod language;
-pub mod mcp_server;
+#[cfg(feature = "mcp")]
+pub mod mcp;
 pub mod parser;
 pub mod search;
+#[cfg(test)]
+mod search_tests;
 pub mod types;
 
 // Re-export commonly used items at the crate root
