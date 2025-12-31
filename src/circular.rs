@@ -2,7 +2,7 @@
 //!
 //! Detects circular function calls (cycles in the call graph).
 
-use crate::parser::{extract_function_calls, extract_functions, get_file_extension, read_file_content};
+use crate::parser::{extract_function_calls, extract_functions, read_file_content};
 use crate::search::list_files;
 use colored::*;
 use std::collections::{HashMap, HashSet};
