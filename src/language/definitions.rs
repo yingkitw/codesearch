@@ -1,20 +1,8 @@
-//! Language Support Module
-//! 
-//! Provides comprehensive multi-language code search support with 48 languages.
+//! Language Definitions
+//!
+//! Comprehensive list of 48+ supported programming languages with their patterns.
 
-use std::path::Path;
-
-/// Supported programming language with its metadata
-#[derive(Debug, Clone)]
-pub struct LanguageInfo {
-    pub name: &'static str,
-    pub extensions: &'static [&'static str],
-    pub function_patterns: &'static [&'static str],
-    pub class_patterns: &'static [&'static str],
-    pub comment_patterns: &'static [&'static str],
-    #[allow(dead_code)]
-    pub import_patterns: &'static [&'static str],
-}
+use super::types::LanguageInfo;
 
 /// All supported languages with their patterns
 pub fn get_supported_languages() -> Vec<LanguageInfo> {
@@ -453,57 +441,3 @@ pub fn get_supported_languages() -> Vec<LanguageInfo> {
         },
     ]
 }
-
-/// Get language info by file extension
-pub fn get_language_by_extension(ext: &str) -> Option<LanguageInfo> {
-    let ext_lower = ext.to_lowercase();
-    get_supported_languages()
-        .into_iter()
-        .find(|lang| lang.extensions.iter().any(|e| e.to_lowercase() == ext_lower))
-}
-
-/// Get all supported file extensions
-#[allow(dead_code)]
-pub fn get_all_supported_extensions() -> Vec<&'static str> {
-    get_supported_languages()
-        .iter()
-        .flat_map(|lang| lang.extensions.iter().copied())
-        .collect()
-}
-
-/// Get language name by file path
-#[allow(dead_code)]
-pub fn get_language_name(file_path: &str) -> String {
-    if let Some(ext) = Path::new(file_path).extension().and_then(|s| s.to_str()) {
-        if let Some(lang) = get_language_by_extension(ext) {
-            return lang.name.to_string();
-        }
-    }
-    "Unknown".to_string()
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_get_supported_languages() {
-        let languages = get_supported_languages();
-        assert!(languages.len() >= 40);
-    }
-
-    #[test]
-    fn test_get_language_by_extension() {
-        assert!(get_language_by_extension("rs").is_some());
-        assert!(get_language_by_extension("py").is_some());
-        assert!(get_language_by_extension("xyz123").is_none());
-    }
-
-    #[test]
-    fn test_get_language_name() {
-        assert_eq!(get_language_name("test.rs"), "Rust");
-        assert_eq!(get_language_name("test.py"), "Python");
-        assert_eq!(get_language_name("test.unknown"), "Unknown");
-    }
-}
-

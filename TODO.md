@@ -7,7 +7,7 @@
 - [x] Add interactive mode
 - [x] Add codebase analysis
 - [x] Add refactoring suggestions
-- [x] Implement MCP server support (rmcp 0.10 with 3 tools: search, list, analyze)
+- [x] Implement MCP server support (rmcp 0.10 with 7 tools: search, list, analyze, complexity, duplicates, deadcode, circular)
 - [x] Add comprehensive unit tests (80+ tests)
 - [x] Add integration tests (26 tests)
 - [x] Simplify CLI usage with defaults
@@ -28,8 +28,50 @@
   - Commented-out code detection
   - Unused import detection
 - [x] Add comprehensive multi-language support (48 languages)
-- [x] Modularize codebase into smaller maintainable modules (14 modules)
+- [x] Modularize codebase into smaller maintainable modules (19 modules)
 - [x] Refactor deadcode.rs into modular structure (4 sub-modules for better maintainability)
+- [x] Extract CLI definitions from main.rs to cli.rs module (reduced main.rs from 1050 to 624 lines)
+- [x] Modularize codemetrics.rs into 5 submodules (complexity, size, maintainability, helpers, mod)
+- [x] Modularize designmetrics.rs into 5 submodules (types, analysis, extractors, reporting, mod)
+- [x] Modularize language.rs into 4 submodules (types, definitions, utilities, mod)
+- [x] Modularize search.rs into 5 submodules (core, fuzzy, semantic, utilities, mod)
+- [x] Remove unsubstantiated performance claims from documentation
+- [x] Ensure all key capabilities are exposed to MCP (7 tools total)
+- [x] Verify code maintainability and testability standards
+- [x] Implement all 6 graph analysis types:
+  - Abstract Syntax Tree (AST)
+  - Control Flow Graph (CFG)
+  - Data Flow Graph (DFG)
+  - Call Graph
+  - Dependency Graph (enhanced)
+  - Program Dependency Graph (PDG)
+- [x] Add unified graph analysis interface
+- [x] Add CLI commands for all graph types
+- [x] Add DOT format export for visualization
+- [x] Add 22 unit tests for graph modules
+- [x] Implement design metrics module:
+  - Afferent Coupling (Ca)
+  - Efferent Coupling (Ce)
+  - Instability (I)
+  - Abstractness (A)
+  - Distance from Main Sequence (D)
+  - Package Cohesion (LCOM)
+- [x] Add CLI command for design metrics analysis
+- [x] Add 6 unit tests for design metrics
+- [x] Implement comprehensive code metrics module:
+  - Cyclomatic Complexity
+  - Halstead Metrics (11 sub-metrics)
+  - Essential Complexity
+  - NPath Complexity
+  - Lines of Code (LOC, SLOC, LLOC)
+  - Code Density & Comment Ratio
+  - Maintainability Index (MI)
+  - Code Churn
+  - Depth of Inheritance Tree (DIT)
+  - Coupling Between Objects (CBO)
+  - Lack of Cohesion in Methods (LCOM)
+- [x] Add CLI command for comprehensive metrics
+- [x] Add 4 unit tests for code metrics
 
 ## 🔄 In Progress
 
@@ -38,18 +80,17 @@
 ## 📋 Planned
 
 ### Performance Improvements
-- [ ] Add incremental indexing for large codebases
-- [ ] Implement file watching for real-time updates
-- [ ] Optimize memory usage for very large files
+- [x] Add incremental indexing for large codebases
+- [x] Implement file watching for real-time updates
+- [x] Optimize memory usage for very large files
 
 ### Features
-- [ ] Add AST-based code analysis (beyond regex)
-- [ ] Add dependency graph analysis
-- [ ] Add support for git history search
-- [ ] Add support for searching in remote repositories
+- [x] Add AST-based code analysis (beyond regex)
+- [x] Add dependency graph analysis
+- [x] Add support for git history search
+- [x] Add support for searching in remote repositories
 
 ### User Experience
-- [ ] Add bookmark system for search results
 - [ ] Add search result preview pane
 
 ### Testing
@@ -61,9 +102,7 @@
 
 ### Documentation
 - [ ] Add API documentation
-- [ ] Add video tutorials
 - [ ] Add more usage examples
-- [ ] Add migration guide from grep
 
 ## 🐛 Known Issues
 

@@ -78,15 +78,34 @@ codesearch interactive
 # Analysis commands
 codesearch analyze              # Codebase metrics
 codesearch complexity           # Complexity scores
+codesearch metrics              # Comprehensive metrics (all-in-one)
+codesearch design-metrics       # Coupling & cohesion
 codesearch duplicates           # Find similar code
 codesearch deadcode             # Find unused code
+
+# Advanced features
+codesearch index                # Build incremental index
+codesearch watch                # Watch for file changes
+
+# Graph analysis (6 types)
+codesearch ast file.rs          # Abstract Syntax Tree
+codesearch cfg file.rs          # Control Flow Graph
+codesearch dfg file.rs          # Data Flow Graph
+codesearch callgraph .          # Call Graph
+codesearch depgraph .           # Dependency Graph
+codesearch pdg file.rs          # Program Dependency Graph
+codesearch graph-all file.rs    # All graphs
+
+# Other advanced features
+codesearch git-history "TODO"   # Search git history
+codesearch remote --github "pattern" # Search GitHub
 ```
 
 ## Why CodeSearch?
 
 **Fast & Precise**
-- Parallel processing (10x faster than grep)
-- Exact line numbers, not fuzzy guesses
+- Parallel processing using Rust and rayon
+- Exact line numbers with precise matching
 - Smart caching for repeated searches
 
 **Language-Aware**
@@ -98,11 +117,26 @@ codesearch deadcode             # Find unused code
 - Detect dead code before it ships
 - Find duplicates to improve DRY
 - Measure complexity to guide refactoring
+- Analyze design quality (coupling, cohesion, instability)
 
 **Developer Friendly**
 - Interactive REPL mode
 - Export to CSV/Markdown
 - MCP server for AI agents
+
+**Advanced Capabilities**
+- Incremental indexing for large codebases
+- Real-time file watching
+- Git history search
+- Remote repository search (GitHub/GitLab)
+
+**Graph Analysis (6 Types)**
+- Abstract Syntax Tree (AST) - code structure
+- Control Flow Graph (CFG) - execution paths
+- Data Flow Graph (DFG) - variable dependencies
+- Call Graph - function relationships
+- Dependency Graph - module dependencies
+- Program Dependency Graph (PDG) - combined analysis
 
 ## Installation
 

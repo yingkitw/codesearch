@@ -119,13 +119,14 @@ Code Search is a fast, intelligent CLI tool for searching and analyzing codebase
 **Protocol**: Model Context Protocol (MCP)  
 **Transport**: stdio
 
-**Exposed Tools:**
+**Exposed Tools (7 total):**
 1. `search_code`: Pattern search with filters
 2. `list_files`: Directory enumeration
 3. `analyze_codebase`: Metrics and statistics
-4. `detect_duplicates`: Duplication detection
-5. `detect_deadcode`: Dead code analysis
-6. `detect_circular`: Circular dependency detection
+4. `detect_complexity`: Complexity analysis
+5. `detect_duplicates`: Duplication detection
+6. `detect_deadcode`: Dead code analysis
+7. `detect_circular`: Circular dependency detection
 
 ## Architecture
 
@@ -207,11 +208,13 @@ pub struct ComplexityMetrics {
    - Reused across file processing
    - Minimal regex compilation overhead
 
-### Benchmarks
+### Performance Characteristics
 
-- **10x faster** than grep for complex patterns
-- **Sub-second** search on medium codebases (1000 files)
-- **Linear scaling** with parallel processing
+- Parallel processing scales with available CPU cores
+- Thread-safe caching reduces redundant work
+- Streaming file reading minimizes memory usage
+
+*Note: Actual performance depends on codebase size, hardware, and query complexity.*
 
 ## Testing Strategy
 
