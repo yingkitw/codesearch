@@ -75,14 +75,11 @@ fn example_specific_errors() {
 }
 
 /// Example 4: Error context with anyhow
-fn example_with_context() -> anyhow::Result<()> {
-    use anyhow::Context;
-    
+fn example_with_context() -> Result<(), Box<dyn std::error::Error>> {
     let path = Path::new("src");
     let options = SearchOptions::default();
     
-    search_code("test", path, &options)
-        .context("Failed to search in src directory")?;
+    search_code("test", path, &options)?;
     
     Ok(())
 }

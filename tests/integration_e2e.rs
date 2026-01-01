@@ -96,7 +96,7 @@ fn complex_function(x: i32) -> i32 {
 "#,
     );
 
-    let result = complexity::analyze_complexity(workspace.path(), Some(&[String::from("rs")]), 1, false);
+    let result = complexity::analyze_complexity(workspace.path(), Some(&[String::from("rs")]), None, Some(1), false);
     assert!(result.is_ok());
 }
 
@@ -117,7 +117,7 @@ fn unused_function() {
 "#,
     );
 
-    let result = deadcode::detect_dead_code(workspace.path(), Some(&[String::from("rs")]));
+    let result = deadcode::detect_dead_code(workspace.path(), Some(&[String::from("rs")]), None);
     assert!(result.is_ok());
 }
 

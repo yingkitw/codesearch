@@ -2,8 +2,8 @@
 //!
 //! Provides a common interface for all graph types and unified visualization.
 
-use crate::ast::{analyze_file, AstAnalysis};
-use crate::callgraph::{build_call_graph, CallGraph};
+use crate::ast::analyze_file;
+use crate::callgraph::build_call_graph;
 use crate::cfg::analyze_file_cfg;
 use crate::depgraph::build_dependency_graph;
 use crate::dfg::analyze_file_dfg;

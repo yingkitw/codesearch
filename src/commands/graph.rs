@@ -46,16 +46,21 @@ pub fn handle_cfg_command(
     path: &Path,
     output: Option<&str>,
 ) -> Result<(), Box<dyn std::error::Error>> {
-    let cfg_results = cfg::analyze_file_cfg(path, "main")?;
+    let cfg_results = cfg::analyze_file_cfg(path)?;
     
     if let Some(output_path) = output {
-        let dot = cfg_results.to_dot();
-        std::fs::write(output_path, dot)?;
-        println!("CFG exported to: {}", output_path);
+        if let Some(first_cfg) = cfg_results.first() {
+            let dot = first_cfg.to_dot();
+            std::fs::write(output_path, dot)?;
+            println!("CFG exported to: {}", output_path);
+        }
     } else {
         println!("CFG Analysis:");
-        println!("  Nodes: {}", cfg_results.nodes.len());
-        println!("  Edges: {}", cfg_results.edges.len());
+        println!("  Functions analyzed: {}", cfg_results.len());
+        for cfg in &cfg_results {
+            println!("  Basic blocks: {}", cfg.basic_blocks.len());
+            println!("  Edges: {}", cfg.edges.len());
+        }
     }
     
     Ok(())
@@ -82,16 +87,21 @@ pub fn handle_dfg_command(
     path: &Path,
     output: Option<&str>,
 ) -> Result<(), Box<dyn std::error::Error>> {
-    let dfg_results = dfg::analyze_file_dfg(path, "main")?;
+    let dfg_results = dfg::analyze_file_dfg(path)?;
     
     if let Some(output_path) = output {
-        let dot = dfg_results.to_dot();
-        std::fs::write(output_path, dot)?;
-        println!("DFG exported to: {}", output_path);
+        if let Some(first_dfg) = dfg_results.first() {
+            let dot = first_dfg.to_dot();
+            std::fs::write(output_path, dot)?;
+            println!("DFG exported to: {}", output_path);
+        }
     } else {
         println!("DFG Analysis:");
-        println!("  Variables: {}", dfg_results.variables.len());
-        println!("  Flows: {}", dfg_results.flows.len());
+        println!("  Functions analyzed: {}", dfg_results.len());
+        for dfg in &dfg_results {
+            println!("  Nodes: {}", dfg.nodes.len());
+            println!("  Edges: {}", dfg.edges.len());
+        }
     }
     
     Ok(())
@@ -109,16 +119,21 @@ pub fn handle_pdg_command(
     path: &Path,
     output: Option<&str>,
 ) -> Result<(), Box<dyn std::error::Error>> {
-    let pdg_results = pdg::analyze_file_pdg(path, "main")?;
+    let pdg_results = pdg::analyze_file_pdg(path)?;
     
     if let Some(output_path) = output {
-        let dot = pdg_results.to_dot();
-        std::fs::write(output_path, dot)?;
-        println!("PDG exported to: {}", output_path);
+        if let Some(first_pdg) = pdg_results.first() {
+            let dot = first_pdg.to_dot();
+            std::fs::write(output_path, dot)?;
+            println!("PDG exported to: {}", output_path);
+        }
     } else {
         println!("PDG Analysis:");
-        println!("  Nodes: {}", pdg_results.nodes.len());
-        println!("  Dependencies: {}", pdg_results.edges.len());
+        println!("  Functions analyzed: {}", pdg_results.len());
+        for pdg in &pdg_results {
+            println!("  Nodes: {}", pdg.nodes.len());
+            println!("  Dependencies: {}", pdg.edges.len());
+        }
     }
     
     Ok(())

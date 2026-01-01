@@ -11,6 +11,7 @@ use codesearch::{analysis, circular, complexity, deadcode, duplicates, export, i
 #[cfg(feature = "mcp")]
 use codesearch::mcp;
 use codesearch::search::{list_files, print_results, print_search_stats, search_code};
+use codesearch::types::SearchOptions;
 
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {

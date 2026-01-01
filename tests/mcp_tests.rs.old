@@ -193,7 +193,7 @@ edition = "2021"
 fn test_search_code_basic() {
     let dir = create_test_project();
     
-    let results = codesearch::search_code(
+    let results = codesearch::search::search_code(
         "fn main",
         dir.path(),
         Some(&["rs".to_string()]),
@@ -217,7 +217,7 @@ fn test_search_code_basic() {
 fn test_search_code_case_insensitive() {
     let dir = create_test_project();
     
-    let results = codesearch::search_code(
+    let results = codesearch::search::search_code(
         "MAIN",
         dir.path(),
         Some(&["rs".to_string()]),
@@ -240,7 +240,7 @@ fn test_search_code_case_insensitive() {
 fn test_search_code_fuzzy() {
     let dir = create_test_project();
     
-    let results = codesearch::search_code(
+    let results = codesearch::search::search_code(
         "comput",  // Typo for "compute"
         dir.path(),
         None,
@@ -264,7 +264,7 @@ fn test_search_code_fuzzy() {
 fn test_search_code_regex() {
     let dir = create_test_project();
     
-    let results = codesearch::search_code(
+    let results = codesearch::search::search_code(
         r"fn\s+\w+\s*\(",  // Regex pattern for function definitions
         dir.path(),
         Some(&["rs".to_string()]),
@@ -287,7 +287,7 @@ fn test_search_code_regex() {
 fn test_search_code_with_ranking() {
     let dir = create_test_project();
     
-    let results = codesearch::search_code(
+    let results = codesearch::search::search_code(
         "compute",
         dir.path(),
         None,
@@ -317,7 +317,7 @@ fn test_search_code_with_ranking() {
 fn test_search_code_exclude_dirs() {
     let dir = create_test_project();
     
-    let results = codesearch::search_code(
+    let results = codesearch::search::search_code(
         "main",
         dir.path(),
         None,
@@ -344,7 +344,7 @@ fn test_search_code_exclude_dirs() {
 fn test_search_code_multiple_extensions() {
     let dir = create_test_project();
     
-    let results = codesearch::search_code(
+    let results = codesearch::search::search_code(
         "compute",
         dir.path(),
         Some(&["rs".to_string(), "py".to_string(), "js".to_string()]),
@@ -374,7 +374,7 @@ fn test_search_code_multiple_extensions() {
 fn test_search_code_todo_comments() {
     let dir = create_test_project();
     
-    let results = codesearch::search_code(
+    let results = codesearch::search::search_code(
         "TODO",
         dir.path(),
         None,
@@ -397,7 +397,7 @@ fn test_search_code_todo_comments() {
 fn test_search_code_fixme_comments() {
     let dir = create_test_project();
     
-    let results = codesearch::search_code(
+    let results = codesearch::search::search_code(
         "FIXME",
         dir.path(),
         None,
@@ -472,7 +472,7 @@ fn test_file_info_has_lines() {
 fn test_search_class_definitions() {
     let dir = create_test_project();
     
-    let results = codesearch::search_code(
+    let results = codesearch::search::search_code(
         r"class\s+\w+",
         dir.path(),
         Some(&["py".to_string(), "js".to_string()]),
@@ -495,7 +495,7 @@ fn test_search_class_definitions() {
 fn test_search_struct_definitions() {
     let dir = create_test_project();
     
-    let results = codesearch::search_code(
+    let results = codesearch::search::search_code(
         r"struct\s+\w+",
         dir.path(),
         Some(&["rs".to_string()]),
@@ -520,7 +520,7 @@ fn test_search_imports() {
     let dir = create_test_project();
     
     // Search for imports in various languages
-    let rust_imports = codesearch::search_code(
+    let rust_imports = codesearch::search::search_code(
         r"^use\s+",
         dir.path(),
         Some(&["rs".to_string()]),
@@ -536,7 +536,7 @@ fn test_search_imports() {
         false,
     ).unwrap();
 
-    let python_imports = codesearch::search_code(
+    let python_imports = codesearch::search::search_code(
         r"^import\s+",
         dir.path(),
         Some(&["py".to_string()]),
@@ -552,7 +552,7 @@ fn test_search_imports() {
         false,
     ).unwrap();
 
-    let js_requires = codesearch::search_code(
+    let js_requires = codesearch::search::search_code(
         r"require\(",
         dir.path(),
         Some(&["js".to_string()]),
@@ -576,7 +576,7 @@ fn test_search_imports() {
 fn test_search_result_structure() {
     let dir = create_test_project();
     
-    let results = codesearch::search_code(
+    let results = codesearch::search::search_code(
         "fn main",
         dir.path(),
         Some(&["rs".to_string()]),
@@ -615,7 +615,7 @@ fn test_search_result_structure() {
 fn test_empty_search() {
     let dir = create_test_project();
     
-    let results = codesearch::search_code(
+    let results = codesearch::search::search_code(
         "this_string_does_not_exist_anywhere_xyzzy",
         dir.path(),
         None,
@@ -638,7 +638,7 @@ fn test_empty_search() {
 fn test_max_results_limit() {
     let dir = create_test_project();
     
-    let results = codesearch::search_code(
+    let results = codesearch::search::search_code(
         "n",  // Very common pattern
         dir.path(),
         None,
@@ -671,7 +671,7 @@ fn test_search_semantic_enhancement() {
     let dir = create_test_project();
     
     // Semantic search should enhance query
-    let results = codesearch::search_code(
+    let results = codesearch::search::search_code(
         "function",  // Should also match fn, def, etc.
         dir.path(),
         None,
@@ -698,7 +698,7 @@ fn test_search_special_characters() {
     // Test searching for special regex characters - the function expects regex patterns
     // so special characters should be escaped by the caller if literal search is needed
     // Here we test that a valid pattern works correctly
-    let results = codesearch::search_code(
+    let results = codesearch::search::search_code(
         r"\{",  // Escaped curly brace for regex
         dir.path(),
         Some(&["rs".to_string()]),
@@ -725,7 +725,7 @@ fn test_search_special_characters() {
 fn test_print_results_does_not_panic() {
     let dir = create_test_project();
     
-    let results = codesearch::search_code(
+    let results = codesearch::search::search_code(
         "fn main",
         dir.path(),
         Some(&["rs".to_string()]),
@@ -752,7 +752,7 @@ fn test_print_results_does_not_panic() {
 fn test_print_stats_does_not_panic() {
     let dir = create_test_project();
     
-    let results = codesearch::search_code(
+    let results = codesearch::search::search_code(
         "fn main",
         dir.path(),
         Some(&["rs".to_string()]),

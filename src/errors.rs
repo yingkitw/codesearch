@@ -165,6 +165,7 @@ impl From<std::io::Error> for AnalysisError {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::error::Error;
 
     #[test]
     fn test_search_error_display() {

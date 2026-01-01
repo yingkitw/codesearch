@@ -58,7 +58,7 @@ pub fn handle_complexity_command(
     threshold: u32,
     sort: bool,
 ) -> Result<(), Box<dyn std::error::Error>> {
-    complexity::analyze_complexity(path, extensions, threshold, sort)?;
+    complexity::analyze_complexity(path, extensions, None, Some(threshold), sort)?;
     Ok(())
 }
 
@@ -84,7 +84,7 @@ pub fn handle_deadcode_command(
     path: &Path,
     extensions: Option<&[String]>,
 ) -> Result<(), Box<dyn std::error::Error>> {
-    deadcode::detect_dead_code(path, extensions)?;
+    deadcode::detect_dead_code(path, extensions, None)?;
     Ok(())
 }
 

@@ -3,7 +3,6 @@
 use codesearch::search::search_code;
 use codesearch::types::SearchOptions;
 use proptest::prelude::*;
-use std::path::Path;
 use tempfile::tempdir;
 use std::fs;
 
@@ -15,7 +14,7 @@ fn query_strategy() -> impl Strategy<Value = String> {
 // Strategy for generating file extensions
 fn extension_strategy() -> impl Strategy<Value = Vec<String>> {
     prop::collection::vec(
-        prop::oneof![
+        prop_oneof![
             Just("rs".to_string()),
             Just("py".to_string()),
             Just("js".to_string()),
