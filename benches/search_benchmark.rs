@@ -15,7 +15,7 @@ fn benchmark_search_small(c: &mut Criterion) {
     // Create small test files
     for i in 0..10 {
         fs::write(
-            dir.path().join(format!("file{}.rs", i)),
+            dir.path().join(format!("file{i}.rs")),
             "fn test() { println!(\"test\"); }",
         )
         .unwrap();
@@ -36,10 +36,9 @@ fn benchmark_search_medium(c: &mut Criterion) {
     // Create medium test files
     for i in 0..100 {
         let content = format!(
-            "fn test_function_{}() {{\n    let x = {};\n    println!(\"test: {{}}\", x);\n}}\n",
-            i, i
+            "fn test_function_{i}() {{\n    let x = {i};\n    println!(\"test: {{}}\", x);\n}}\n"
         );
-        fs::write(dir.path().join(format!("file{}.rs", i)), content).unwrap();
+        fs::write(dir.path().join(format!("file{i}.rs")), content).unwrap();
     }
 
     let options = SearchOptions::default();
@@ -83,7 +82,7 @@ fn benchmark_search_with_options(c: &mut Criterion) {
     
     for i in 0..50 {
         fs::write(
-            dir.path().join(format!("file{}.rs", i)),
+            dir.path().join(format!("file{i}.rs")),
             "fn test() { println!(\"test\"); }",
         )
         .unwrap();

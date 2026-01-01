@@ -8,6 +8,12 @@ pub struct Calculator {
     cache: HashMap<String, f64>,
 }
 
+impl Default for Calculator {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl Calculator {
     /// Create a new calculator instance
     pub fn new() -> Self {
@@ -20,14 +26,14 @@ impl Calculator {
     /// Add two numbers
     pub fn add(&mut self, a: f64, b: f64) -> f64 {
         let result = a + b;
-        self.history.push(format!("{} + {} = {}", a, b, result));
+        self.history.push(format!("{a} + {b} = {result}"));
         result
     }
 
     /// Multiply two numbers
     pub fn multiply(&mut self, a: f64, b: f64) -> f64 {
         let result = a * b;
-        self.history.push(format!("{} * {} = {}", a, b, result));
+        self.history.push(format!("{a} * {b} = {result}"));
         result
     }
 
@@ -67,13 +73,13 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let product = calc.multiply(4.0, 7.0);
     let fact = calc.factorial(5);
     
-    println!("Sum: {}", sum);
-    println!("Product: {}", product);
-    println!("Factorial: {}", fact);
+    println!("Sum: {sum}");
+    println!("Product: {product}");
+    println!("Factorial: {fact}");
     
     // Print history
     for entry in calc.get_history() {
-        println!("History: {}", entry);
+        println!("History: {entry}");
     }
     
     Ok(())

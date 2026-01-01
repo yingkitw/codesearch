@@ -37,13 +37,13 @@ mod tests {
         
         let output = if binary_path.exists() {
             Command::new(binary_path)
-                .args(&["search", "Hello", temp_dir.path().to_str().unwrap(), "--no-auto-exclude"])
+                .args(["search", "Hello", temp_dir.path().to_str().unwrap(), "--no-auto-exclude"])
                 .output()
                 .unwrap()
         } else {
             // Fallback to cargo run if binary doesn't exist
             Command::new("cargo")
-                .args(&["run", "--", "search", "Hello", temp_dir.path().to_str().unwrap(), "--no-auto-exclude"])
+                .args(["run", "--", "search", "Hello", temp_dir.path().to_str().unwrap(), "--no-auto-exclude"])
             .output()
                 .unwrap()
         };
@@ -64,12 +64,12 @@ mod tests {
         
         let output = if binary_path.exists() {
             Command::new(binary_path)
-                .args(&["search", "hello", temp_dir.path().to_str().unwrap(), "--extensions", "rs,py", "--ignore-case", "--no-auto-exclude"])
+                .args(["search", "hello", temp_dir.path().to_str().unwrap(), "--extensions", "rs,py", "--ignore-case", "--no-auto-exclude"])
                 .output()
                 .unwrap()
         } else {
             Command::new("cargo")
-                .args(&["run", "--", "search", "hello", temp_dir.path().to_str().unwrap(), "--extensions", "rs,py", "--ignore-case", "--no-auto-exclude"])
+                .args(["run", "--", "search", "hello", temp_dir.path().to_str().unwrap(), "--extensions", "rs,py", "--ignore-case", "--no-auto-exclude"])
             .output()
                 .unwrap()
         };
@@ -93,12 +93,12 @@ mod tests {
         
         let output = if binary_path.exists() {
             Command::new(binary_path)
-                .args(&["search", "hello", temp_dir.path().to_str().unwrap(), "--ignore-case", "--no-auto-exclude"])
+                .args(["search", "hello", temp_dir.path().to_str().unwrap(), "--ignore-case", "--no-auto-exclude"])
                 .output()
                 .unwrap()
         } else {
             Command::new("cargo")
-                .args(&["run", "--", "search", "hello", temp_dir.path().to_str().unwrap(), "--ignore-case", "--no-auto-exclude"])
+                .args(["run", "--", "search", "hello", temp_dir.path().to_str().unwrap(), "--ignore-case", "--no-auto-exclude"])
             .output()
                 .unwrap()
         };
@@ -119,12 +119,12 @@ mod tests {
         
         let output = if binary_path.exists() {
             Command::new(binary_path)
-                .args(&["search", r"fn\s+\w+", temp_dir.path().to_str().unwrap(), "--extensions", "rs", "--no-auto-exclude"])
+                .args(["search", r"fn\s+\w+", temp_dir.path().to_str().unwrap(), "--extensions", "rs", "--no-auto-exclude"])
                 .output()
                 .unwrap()
         } else {
             Command::new("cargo")
-                .args(&["run", "--", "search", r"fn\s+\w+", temp_dir.path().to_str().unwrap(), "--extensions", "rs", "--no-auto-exclude"])
+                .args(["run", "--", "search", r"fn\s+\w+", temp_dir.path().to_str().unwrap(), "--extensions", "rs", "--no-auto-exclude"])
             .output()
                 .unwrap()
         };
@@ -146,12 +146,12 @@ mod tests {
         
         let output = if binary_path.exists() {
             Command::new(binary_path)
-                .args(&["files", temp_dir.path().to_str().unwrap(), "--extensions", "rs"])
+                .args(["files", temp_dir.path().to_str().unwrap(), "--extensions", "rs"])
                 .output()
                 .unwrap()
         } else {
             Command::new("cargo")
-            .args(&["run", "--", "files", temp_dir.path().to_str().unwrap(), "--extensions", "rs"])
+            .args(["run", "--", "files", temp_dir.path().to_str().unwrap(), "--extensions", "rs"])
             .output()
                 .unwrap()
         };
@@ -173,12 +173,12 @@ mod tests {
         
         let output = if binary_path.exists() {
             Command::new(binary_path)
-                .args(&["search", "Hello", temp_dir.path().to_str().unwrap(), "--format", "json", "--no-auto-exclude"])
+                .args(["search", "Hello", temp_dir.path().to_str().unwrap(), "--format", "json", "--no-auto-exclude"])
                 .output()
                 .unwrap()
         } else {
             Command::new("cargo")
-                .args(&["run", "--", "search", "Hello", temp_dir.path().to_str().unwrap(), "--format", "json", "--no-auto-exclude"])
+                .args(["run", "--", "search", "Hello", temp_dir.path().to_str().unwrap(), "--format", "json", "--no-auto-exclude"])
             .output()
                 .unwrap()
         };
@@ -522,7 +522,7 @@ fn test_special() {
         // Should find at least one TODO or FIXME comment
         let has_todo = stdout_todo.to_uppercase().contains("TODO") && !stdout_todo.contains("No matches");
         let has_fixme = stdout_fixme.to_uppercase().contains("FIXME") && !stdout_fixme.contains("No matches");
-        assert!(has_todo || has_fixme, "Should find TODO or FIXME comments. TODO output: {}, FIXME output: {}", stdout_todo, stdout_fixme);
+        assert!(has_todo || has_fixme, "Should find TODO or FIXME comments. TODO output: {stdout_todo}, FIXME output: {stdout_fixme}");
     }
 
     #[test]
@@ -532,7 +532,7 @@ fn test_special() {
         
         let output = if binary_path.exists() {
             Command::new(binary_path)
-                .args(&[temp_dir.path().to_str().unwrap(), "Hello"])
+                .args([temp_dir.path().to_str().unwrap(), "Hello"])
                 .current_dir(temp_dir.path())
                 .output()
                 .unwrap()
@@ -637,7 +637,7 @@ fn test_special() {
         
         // Try to parse as JSON to ensure it's valid
         let json_result: Result<serde_json::Value, _> = serde_json::from_str(&stdout);
-        assert!(json_result.is_ok(), "Invalid JSON output: {}", stdout);
+        assert!(json_result.is_ok(), "Invalid JSON output: {stdout}");
     }
 
     #[test]

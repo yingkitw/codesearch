@@ -73,7 +73,7 @@ proptest! {
         ignore_case in any::<bool>()
     ) {
         let dir = tempdir().unwrap();
-        let content = format!("This contains the word {} in the text", query);
+        let content = format!("This contains the word {query} in the text");
         fs::write(dir.path().join("test.txt"), &content).unwrap();
         
         let options = SearchOptions {
@@ -105,7 +105,7 @@ proptest! {
         // Create multiple files with matches
         for i in 0..20 {
             fs::write(
-                dir.path().join(format!("file{}.txt", i)),
+                dir.path().join(format!("file{i}.txt")),
                 "test test test"
             ).unwrap();
         }

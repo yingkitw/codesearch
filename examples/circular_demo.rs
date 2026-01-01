@@ -29,17 +29,17 @@ fn is_odd(n: u32) -> bool {
 
 // Three-way circular: process_a -> process_b -> process_c -> process_a
 fn process_a(data: &str) -> String {
-    let processed = format!("A:{}", data);
+    let processed = format!("A:{data}");
     process_b(&processed)
 }
 
 fn process_b(data: &str) -> String {
-    let processed = format!("B:{}", data);
+    let processed = format!("B:{data}");
     process_c(&processed)
 }
 
 fn process_c(data: &str) -> String {
-    let processed = format!("C:{}", data);
+    let processed = format!("C:{data}");
     // This creates a circular dependency
     if processed.len() < 100 {
         process_a(&processed)

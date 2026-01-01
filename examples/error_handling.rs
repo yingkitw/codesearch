@@ -21,7 +21,7 @@ fn example_search_with_error_handling() -> Result<(), SearchError> {
         }
         Err(e) => {
             // Convert generic error to specific SearchError
-            eprintln!("Search failed: {}", e);
+            eprintln!("Search failed: {e}");
             Err(SearchError::InvalidOptions {
                 message: e.to_string(),
             })
@@ -40,7 +40,7 @@ fn example_trait_based_search() -> Result<(), SearchError> {
             Ok(())
         }
         Err(e) => {
-            eprintln!("Search error: {}", e);
+            eprintln!("Search error: {e}");
             Err(SearchError::InvalidOptions {
                 message: e.to_string(),
             })
@@ -54,7 +54,7 @@ fn example_specific_errors() {
     let err = SearchError::FileNotFound {
         path: PathBuf::from("/nonexistent/file.rs"),
     };
-    println!("Error: {}", err);
+    println!("Error: {err}");
     
     // Invalid pattern error
     let regex_err = regex::Regex::new("[").unwrap_err();
@@ -62,16 +62,16 @@ fn example_specific_errors() {
         pattern: "[".to_string(),
         source: regex_err,
     };
-    println!("Error: {}", err);
+    println!("Error: {err}");
     if let Some(source) = std::error::Error::source(&err) {
-        println!("Caused by: {}", source);
+        println!("Caused by: {source}");
     }
     
     // Analysis error
     let err = AnalysisError::UnsupportedFileType {
         extension: "xyz".to_string(),
     };
-    println!("Error: {}", err);
+    println!("Error: {err}");
 }
 
 /// Example 4: Error context with anyhow
@@ -89,12 +89,12 @@ fn example_error_conversion() {
     // IO error to SearchError
     let io_err = std::io::Error::new(std::io::ErrorKind::NotFound, "file not found");
     let search_err: SearchError = io_err.into();
-    println!("Converted error: {}", search_err);
+    println!("Converted error: {search_err}");
     
     // Regex error to SearchError
     let regex_err = regex::Regex::new("(").unwrap_err();
     let search_err: SearchError = regex_err.into();
-    println!("Converted error: {}", search_err);
+    println!("Converted error: {search_err}");
 }
 
 fn main() {
@@ -102,12 +102,12 @@ fn main() {
     
     println!("Example 1: Search with error handling");
     if let Err(e) = example_search_with_error_handling() {
-        eprintln!("Error: {}", e);
+        eprintln!("Error: {e}");
     }
     
     println!("\nExample 2: Trait-based search");
     if let Err(e) = example_trait_based_search() {
-        eprintln!("Error: {}", e);
+        eprintln!("Error: {e}");
     }
     
     println!("\nExample 3: Specific error types");
@@ -115,7 +115,7 @@ fn main() {
     
     println!("\nExample 4: Error context with anyhow");
     if let Err(e) = example_with_context() {
-        eprintln!("Error: {:?}", e);
+        eprintln!("Error: {e:?}");
     }
     
     println!("\nExample 5: Error conversion");

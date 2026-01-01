@@ -141,7 +141,7 @@ fn test_search_ranking() {
 
 #[test]
 fn test_search_with_exclusions() {
-    let mut workspace = TestWorkspace::new();
+    let workspace = TestWorkspace::new();
     let subdir = workspace.create_subdir("excluded");
     fs::write(subdir.join("test.rs"), "fn excluded_test() {}").expect("Failed to write");
 
@@ -165,7 +165,7 @@ fn test_max_results_limit() {
     // Create multiple files with many matches
     for i in 0..10 {
         workspace.add_file(
-            &format!("file{}.txt", i),
+            &format!("file{i}.txt"),
             "test test test test test",
         );
     }
@@ -226,7 +226,7 @@ fn test_empty_directory() {
 
 #[test]
 fn test_nested_directories() {
-    let mut workspace = TestWorkspace::new();
+    let workspace = TestWorkspace::new();
     let subdir1 = workspace.create_subdir("level1");
     let subdir2 = subdir1.join("level2");
     fs::create_dir_all(&subdir2).expect("Failed to create nested dir");

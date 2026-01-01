@@ -1,9 +1,6 @@
 // Dead Code Demonstration File
 // This file intentionally contains dead code for testing the deadcode detection feature
 
-use std::collections::HashMap;
-use std::fs::File;
-use std::io::Write;
 
 // ============================================
 // DEAD CODE EXAMPLES
@@ -31,7 +28,7 @@ fn unused_helper(x: i32, y: i32) -> i32 {
 
 // Another unused function
 fn deprecated_format(s: &str) -> String {
-    format!("[DEPRECATED] {}", s)
+    format!("[DEPRECATED] {s}")
 }
 
 // Unused constant
@@ -46,6 +43,12 @@ pub struct Calculator {
     history: Vec<String>,
 }
 
+impl Default for Calculator {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl Calculator {
     pub fn new() -> Self {
         Self {
@@ -55,7 +58,7 @@ impl Calculator {
 
     pub fn add(&mut self, a: i32, b: i32) -> i32 {
         let result = a + b;
-        self.history.push(format!("{} + {} = {}", a, b, result));
+        self.history.push(format!("{a} + {b} = {result}"));
         result
     }
 
@@ -67,10 +70,10 @@ impl Calculator {
 fn main() {
     let mut calc = Calculator::new();
     let sum = calc.add(5, 3);
-    println!("Sum: {}", sum);
+    println!("Sum: {sum}");
     
     for entry in calc.get_history() {
-        println!("{}", entry);
+        println!("{entry}");
     }
 }
 

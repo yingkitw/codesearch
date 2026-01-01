@@ -74,7 +74,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             }
             return Ok(());
         } else {
-            Cli::parse_from(&["codesearch", "--help"]);
+            Cli::parse_from(["codesearch", "--help"]);
             return Ok(());
         }
     }
@@ -128,12 +128,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
             if let Some(path) = export_path {
                 export::export_results(&results, &path, &query)?;
-                println!("{}", format!("Results exported to: {}", path).green());
+                println!("{}", format!("Results exported to: {path}").green());
             } else {
                 match format.as_str() {
                 "json" => {
                     let json = serde_json::to_string_pretty(&results)?;
-                    println!("{}", json);
+                    println!("{json}");
                 }
                 _ => {
                         if results.is_empty() {
@@ -158,7 +158,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 }
                 None => {
                     let json = serde_json::to_string_pretty(&files)?;
-                    println!("{}", json);
+                    println!("{json}");
                 }
             }
         }
@@ -283,8 +283,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 }
                 
                 println!("\n{}", "AST Analysis Summary:".green().bold());
-                println!("  Total functions: {}", total_functions);
-                println!("  Total classes: {}", total_classes);
+                println!("  Total functions: {total_functions}");
+                println!("  Total classes: {total_classes}");
             }
         }
         Some(Commands::Cfg { path, extensions: _, format, export }) => {
@@ -390,7 +390,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                     if !recursive.is_empty() {
                         println!("\n{}", "Recursive Functions:".yellow().bold());
                         for func in &recursive {
-                            println!("  - {}", func);
+                            println!("  - {func}");
                         }
                     }
                 }
@@ -400,7 +400,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                     if !dead.is_empty() {
                         println!("\n{}", "Dead Functions (never called):".red().bold());
                         for func in &dead {
-                            println!("  - {}", func);
+                            println!("  - {func}");
                         }
                     }
                 }
@@ -427,8 +427,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                         let control_deps = pdg.edges.iter().filter(|e| e.dependency_type == codesearch::pdg::DependencyType::ControlDependence).count();
                         let data_deps = pdg.edges.iter().filter(|e| e.dependency_type == codesearch::pdg::DependencyType::DataDependence).count();
                         
-                        println!("  Control dependencies: {}", control_deps);
-                        println!("  Data dependencies: {}", data_deps);
+                        println!("  Control dependencies: {control_deps}");
+                        println!("  Data dependencies: {data_deps}");
                         
                         if parallel {
                             let parallel_ops = pdg.find_parallel_opportunities();
@@ -470,7 +470,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                     println!("  Edges: {}", result.summary.edge_count);
                     println!("\n{}", "Key Findings:".cyan());
                     for finding in &result.summary.key_findings {
-                        println!("  • {}", finding);
+                        println!("  • {finding}");
                     }
                 }
                 
@@ -508,7 +508,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                     for (i, cycle) in cycles.iter().enumerate() {
                         println!("\nCycle {}:", i + 1);
                         for node in cycle {
-                            println!("  -> {}", node);
+                            println!("  -> {node}");
                         }
                     }
                 }
@@ -526,12 +526,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 
                 println!("\n{}", "Root nodes (no dependencies):".cyan());
                 for node in &root_nodes {
-                    println!("  {}", node);
+                    println!("  {node}");
                 }
                 
                 println!("\n{}", "Leaf nodes (no dependents):".cyan());
                 for node in &leaf_nodes {
-                    println!("  {}", node);
+                    println!("  {node}");
                 }
             }
         }
@@ -586,7 +586,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                     println!("  {}", result.url);
                 }
             } else if let Some(repo_url) = repo {
-                println!("{}", format!("Cloning and searching {}...", repo_url).cyan().bold());
+                println!("{}", format!("Cloning and searching {repo_url}...").cyan().bold());
                 let results = searcher.clone_and_search(&repo_url, &query, extensions.as_deref())?;
                 println!("\n{}", format!("Found {} matches:", results.len()).green().bold());
                 for result in results {
@@ -616,7 +616,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             }
         }
         None => {
-            Cli::parse_from(&["codesearch", "--help"]);
+            Cli::parse_from(["codesearch", "--help"]);
         }
     }
 
