@@ -17,7 +17,7 @@ pub fn compare_with_grep(query: &str, path: &str, extensions: Option<&[String]>,
     
     if let Some(exts) = extensions {
         for ext in exts {
-            grep_cmd.arg("--include").arg(format!("*.{}", ext));
+            grep_cmd.arg("--include").arg(format!("*.{ext}"));
         }
     }
     
@@ -31,7 +31,7 @@ pub fn compare_with_grep(query: &str, path: &str, extensions: Option<&[String]>,
     if let Ok(result) = output {
         let grep_matches = String::from_utf8_lossy(&result.stdout).lines().count();
         println!("  codesearch files: {}", metrics.files_processed);
-        println!("  grep matches: {}", grep_matches);
+        println!("  grep matches: {grep_matches}");
         
         let speedup = grep_time.as_millis() as f64 / metrics.search_time_ms as f64;
         if speedup > 1.0 {
@@ -80,7 +80,7 @@ pub fn print_results(results: &[SearchResult], show_line_numbers: bool, show_ran
             }
         }
         
-        println!("  {}{}{}", line_prefix, highlighted_content, ranking_suffix);
+        println!("  {line_prefix}{highlighted_content}{ranking_suffix}");
     }
 }
 
@@ -95,9 +95,9 @@ pub fn print_search_stats(results: &[SearchResult], query: &str) {
     
     println!("\n{}", "Search Statistics:".cyan().bold());
     println!("  Query: {}", query.yellow());
-    println!("  Files with matches: {}", total_files);
-    println!("  Total matches: {}", total_matches);
+    println!("  Files with matches: {total_files}");
+    println!("  Total matches: {total_matches}");
     
     let avg_score: f64 = results.iter().map(|r| r.score).sum::<f64>() / results.len() as f64;
-    println!("  Average relevance score: {:.1}", avg_score);
+    println!("  Average relevance score: {avg_score:.1}");
 }

@@ -16,6 +16,7 @@ pub mod cache;
 pub mod callgraph;
 pub mod cfg;
 pub mod cli;
+pub mod commands;
 pub mod codemetrics;
 pub mod circular;
 #[cfg(test)]
@@ -28,7 +29,10 @@ pub mod depgraph;
 pub mod designmetrics;
 pub mod dfg;
 pub mod duplicates;
+pub mod cache_lru;
+pub mod errors;
 pub mod export;
+pub mod fs;
 pub mod githistory;
 pub mod graphs;
 pub mod index;
@@ -41,6 +45,7 @@ pub mod parser;
 pub mod pdg;
 pub mod remote;
 pub mod search;
+pub mod traits;
 #[cfg(test)]
 mod search_tests;
 pub mod types;

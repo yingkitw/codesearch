@@ -71,6 +71,7 @@ pub struct VariableInfo {
 
 pub struct AstParser {
     parser: Parser,
+    #[allow(dead_code)]
     language: Language,
 }
 

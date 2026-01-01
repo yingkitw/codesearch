@@ -2,8 +2,8 @@
 //!
 //! Combines Control Flow Graph (CFG) and Data Flow Graph (DFG) for comprehensive analysis.
 
-use crate::cfg::{ControlFlowGraph, EdgeType as CfgEdgeType};
-use crate::dfg::{DataFlowGraph, DataFlowType};
+use crate::cfg::ControlFlowGraph;
+use crate::dfg::DataFlowGraph;
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
 use std::path::Path;

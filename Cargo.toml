@@ -1,6 +1,6 @@
 [package]
 name = "codesearch"
-version = "0.1.4"
+version = "0.1.5"
 edition = "2024"
 authors = ["Ying Kit WONG"]
 description = "A fast, intelligent CLI tool with multiple search modes (regex, fuzzy, semantic), code analysis, and dead code detection for 48+ languages"
@@ -53,3 +53,8 @@ default = []
 mcp = ["rmcp", "tokio", "schemars"]
 
 [dev-dependencies]
+proptest = "1.4"
+criterion = "0.5"
+
+[dependencies.lru]
+version = "0.12"

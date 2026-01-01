@@ -3,11 +3,14 @@
 //! Core search functionality with parallel processing, fuzzy matching, and semantic search.
 
 pub mod core;
+pub mod engine;
 pub mod fuzzy;
+pub mod pure;
 pub mod semantic;
 pub mod utilities;
 
 pub use core::{search_code, list_files};
+pub use engine::DefaultSearchEngine;
 pub use fuzzy::{search_in_file_parallel, calculate_relevance_score};
 pub use semantic::enhance_query_semantically;
 pub use utilities::{compare_with_grep, print_results, print_search_stats};
@@ -15,6 +18,7 @@ pub use utilities::{compare_with_grep, print_results, print_search_stats};
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::types::SearchOptions;
     use std::path::Path;
 
     #[test]
@@ -49,21 +53,20 @@ mod tests {
         let file_path = dir.path().join("test.rs");
         fs::write(&file_path, "fn test() {\n    println!(\"hello\");\n}").unwrap();
 
-        let results = search_code(
-            "test",
-            dir.path(),
-            Some(&["rs".to_string()]),
-            true,
-            false,
-            0.6,
-            10,
-            None,
-            false,
-            false,
-            false,
-            false,
-            false,
-        );
+        let options = SearchOptions {
+            extensions: Some(vec!["rs".to_string()]),
+            ignore_case: true,
+            fuzzy: false,
+            fuzzy_threshold: 0.6,
+            max_results: 10,
+            exclude: None,
+            rank: false,
+            cache: false,
+            semantic: false,
+            benchmark: false,
+            vs_grep: false,
+        };
+        let results = search_code("test", dir.path(), &options);
 
         assert!(results.is_ok());
         let results = results.unwrap();
@@ -94,24 +97,23 @@ mod tests {
         fs::write(dir.path().join("test.rs"), "fn test() {}").unwrap();
         fs::write(dir.path().join("test.py"), "def test(): pass").unwrap();
 
-        let results = search_code(
-            "test",
-            dir.path(),
-            Some(&["rs".to_string()]),
-            true,
-            false,
-            0.6,
-            10,
-            None,
-            false,
-            false,
-            false,
-            false,
-            false,
-        );
+        let options = SearchOptions {
+            extensions: Some(vec!["rs".to_string()]),
+            ignore_case: true,
+            fuzzy: false,
+            fuzzy_threshold: 0.6,
+            max_results: 10,
+            exclude: None,
+            rank: false,
+            cache: false,
+            semantic: false,
+            benchmark: false,
+            vs_grep: false,
+        };
+        let results = search_code("test", dir.path(), &options);
 
         assert!(results.is_ok());
         let results = results.unwrap();
-        assert!(results.iter().all(|r| r.file.ends_with(".rs")));
+        assert_eq!(results.len(), 1);
     }
 }

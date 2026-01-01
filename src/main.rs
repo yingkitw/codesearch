@@ -49,21 +49,21 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 final_exclude.extend(user_exclude);
             }
             
-            let results = search_code(
-                &query,
-                &cli.path,
-                cli.extensions.as_deref(),
-                cli.ignore_case,
-                cli.fuzzy,
-                0.6, // fuzzy_threshold
-                cli.max_results,
-                Some(final_exclude.as_slice()),
-                false, // rank
-                false, // cache
-                false, // semantic
-                false, // benchmark
-                false, // vs_grep
-            )?;
+            let options = SearchOptions {
+                extensions: cli.extensions,
+                ignore_case: cli.ignore_case,
+                fuzzy: cli.fuzzy,
+                fuzzy_threshold: 0.6,
+                max_results: cli.max_results,
+                exclude: Some(final_exclude),
+                rank: false,
+                cache: false,
+                semantic: false,
+                benchmark: false,
+                vs_grep: false,
+            };
+            
+            let results = search_code(&query, &cli.path, &options)?;
             
             if results.is_empty() {
                 println!("{}", "No matches found.".dimmed());
@@ -109,21 +109,21 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 Some(auto_exclude)
             };
             
-            let results = search_code(
-                &query,
-                &path,
-                extensions.as_deref(),
+            let options = SearchOptions {
+                extensions,
                 ignore_case,
                 fuzzy,
                 fuzzy_threshold,
                 max_results,
-                final_exclude.as_deref(),
+                exclude: final_exclude,
                 rank,
                 cache,
                 semantic,
                 benchmark,
                 vs_grep,
-            )?;
+            };
+            
+            let results = search_code(&query, &path, &options)?;
 
             if let Some(path) = export_path {
                 export::export_results(&results, &path, &query)?;
@@ -230,7 +230,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             start_watching(path, index, extensions)?;
         }
         Some(Commands::Ast { path, extensions, format }) => {
-            use codesearch::ast::{analyze_file, AstParser};
+            use codesearch::ast::analyze_file;
             use walkdir::WalkDir;
             
             println!("{}", "Analyzing code with AST...".cyan().bold());
@@ -286,7 +286,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 println!("  Total classes: {}", total_classes);
             }
         }
-        Some(Commands::Cfg { path, extensions, format, export }) => {
+        Some(Commands::Cfg { path, extensions: _, format, export }) => {
             use codesearch::cfg::analyze_file_cfg;
             
             println!("{}", "Analyzing Control Flow Graph...".cyan().bold());
@@ -328,7 +328,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 }
             }
         }
-        Some(Commands::Dfg { path, extensions, format, export }) => {
+        Some(Commands::Dfg { path, extensions: _, format, export }) => {
             use codesearch::dfg::analyze_file_dfg;
             
             println!("{}", "Analyzing Data Flow Graph...".cyan().bold());
@@ -405,7 +405,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 }
             }
         }
-        Some(Commands::Pdg { path, extensions, format, parallel, export }) => {
+        Some(Commands::Pdg { path, extensions: _, format, parallel, export }) => {
             use codesearch::pdg::analyze_file_pdg;
             
             println!("{}", "Analyzing Program Dependency Graph...".cyan().bold());

@@ -1,0 +1,29 @@
+# Tarpaulin Configuration for Code Coverage
+
+[report]
+# Output coverage report in multiple formats
+out = ["Html", "Lcov", "Json"]
+
+[run]
+# Exclude test files and generated code from coverage
+exclude = [
+    "tests/*",
+    "examples/*",
+    "benches/*",
+]
+
+# Include only library code
+target = "lib"
+
+# Timeout for tests (in seconds)
+timeout = 300
+
+# Number of test threads
+test-threads = 4
+
+[output]
+# Output directory for coverage reports
+dir = "target/coverage"
+
+# Minimum coverage threshold (percentage)
+fail-under = 70

@@ -188,12 +188,10 @@ impl ControlFlowGraph {
 pub fn build_cfg_from_source(content: &str, function_name: &str, file_path: &str) -> Result<ControlFlowGraph, Box<dyn std::error::Error>> {
     let mut cfg = ControlFlowGraph::new(function_name.to_string(), file_path.to_string());
     let mut block_id = 0;
-    let mut current_line = 1;
 
     let lines: Vec<&str> = content.lines().collect();
     let mut in_function = false;
     let mut brace_depth = 0;
-    let mut function_start = 0;
 
     for (idx, line) in lines.iter().enumerate() {
         let trimmed = line.trim();
@@ -202,12 +200,12 @@ pub fn build_cfg_from_source(content: &str, function_name: &str, file_path: &str
             || trimmed.contains(&format!("def {}", function_name))
             || trimmed.contains(&format!("function {}", function_name))) {
             in_function = true;
-            function_start = idx + 1;
+            let line_num = idx + 1;
             
             let entry_block = BasicBlock {
                 id: block_id,
-                start_line: function_start,
-                end_line: function_start,
+                start_line: line_num,
+                end_line: line_num,
                 instructions: vec![trimmed.to_string()],
                 block_type: BlockType::Entry,
             };

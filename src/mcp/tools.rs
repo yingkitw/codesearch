@@ -2,7 +2,7 @@
 
 use super::params::*;
 use crate::search::{list_files, search_code};
-use crate::types::{FileInfo, SearchResult};
+use crate::types::{FileInfo, SearchOptions, SearchResult};
 use crate::{circular, complexity, deadcode, duplicates};
 use rmcp::handler::server::wrapper::{Json, Parameters};
 use std::path::PathBuf;
@@ -12,21 +12,21 @@ pub async fn search_code_tool(params: Parameters<SearchCodeParams>) -> Json<Vec<
     let params = params.0;
     let path_buf = PathBuf::from(params.path.as_deref().unwrap_or("."));
     
-    Json(search_code(
-        &params.query,
-        &path_buf,
-        params.extensions.as_deref(),
-        params.ignore_case.unwrap_or(false),
-        params.fuzzy.unwrap_or(false),
-        params.fuzzy_threshold.unwrap_or(0.6),
-        params.max_results.unwrap_or(10),
-        params.exclude.as_deref(),
-        params.rank.unwrap_or(false),
-        false, // cache
-        false, // semantic
-        false, // benchmark
-        false, // vs_grep
-    ).unwrap_or_default())
+    let options = SearchOptions {
+        extensions: params.extensions,
+        ignore_case: params.ignore_case.unwrap_or(false),
+        fuzzy: params.fuzzy.unwrap_or(false),
+        fuzzy_threshold: params.fuzzy_threshold.unwrap_or(0.6),
+        max_results: params.max_results.unwrap_or(10),
+        exclude: params.exclude,
+        rank: params.rank.unwrap_or(false),
+        cache: false,
+        semantic: false,
+        benchmark: false,
+        vs_grep: false,
+    };
+    
+    Json(search_code(&params.query, &path_buf, &options).unwrap_or_default())
 }
 
 /// List all searchable files in a directory

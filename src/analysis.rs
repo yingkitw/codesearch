@@ -98,7 +98,7 @@ pub fn analyze_codebase(
 
     if total_lines > 0 {
         let comment_ratio = (comment_lines as f64 / total_lines as f64) * 100.0;
-        println!("  Comment ratio: {:.1}%", comment_ratio);
+        println!("  Comment ratio: {comment_ratio:.1}%");
     }
 
     println!();
@@ -150,7 +150,7 @@ fn format_size(bytes: u64) -> String {
     } else if bytes >= KB {
         format!("{:.1} KB", bytes as f64 / KB as f64)
     } else {
-        format!("{} bytes", bytes)
+        format!("{bytes} bytes")
     }
 }
 
@@ -228,6 +228,7 @@ pub fn analyze_file_for_refactoring(
     suggestions: &mut Vec<RefactorSuggestion>,
 ) {
     let lines: Vec<&str> = content.lines().collect();
+    let magic_regex = Regex::new(r"[^\w](\d{2,})[^\w]").unwrap();
 
     for (i, line) in lines.iter().enumerate() {
         let line_num = i + 1;
@@ -260,7 +261,6 @@ pub fn analyze_file_for_refactoring(
         }
 
         // Magic numbers
-        let magic_regex = Regex::new(r"[^\w](\d{2,})[^\w]").unwrap();
         if magic_regex.is_match(trimmed) && !trimmed.contains("//") {
             suggestions.push(RefactorSuggestion {
                 file: file_path.to_string(),

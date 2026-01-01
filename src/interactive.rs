@@ -2,9 +2,11 @@
 //!
 //! Provides an interactive REPL for code searching and analysis.
 
-use crate::search::{print_results, print_search_stats, search_code};
-use crate::types::SearchResult;
 use crate::{analysis, circular, complexity, deadcode, duplicates, export};
+use crate::search::search_code;
+use crate::search::print_results;
+use crate::search::print_search_stats;
+use crate::types::{SearchOptions, SearchResult};
 use colored::*;
 use std::io::{self, Write};
 use std::path::Path;
@@ -113,21 +115,20 @@ pub fn run(
             "!!" | "repeat" => {
                 if let Some(ref query) = last_query {
                     println!("{}", format!("Repeating: {}", query).blue());
-                    let results = search_code(
-                        query,
-                        path,
-                        current_extensions.as_deref(),
-                        case_insensitive,
-                        fuzzy_mode,
-                        0.6,
-                        20,
-                        current_exclude.as_deref(),
-                        ranking_mode,
-                        false,
-                        semantic_mode,
-                        false,
-                        false,
-                    )?;
+                    let options = SearchOptions {
+                        extensions: current_extensions.clone(),
+                        ignore_case: case_insensitive,
+                        fuzzy: fuzzy_mode,
+                        fuzzy_threshold: 0.6,
+                        max_results: 20,
+                        exclude: current_exclude.clone(),
+                        rank: ranking_mode,
+                        cache: false,
+                        semantic: semantic_mode,
+                        benchmark: false,
+                        vs_grep: false,
+                    };
+                    let results = search_code(query, path, &options)?;
                     last_results = results.clone();
                     if results.is_empty() {
                         println!("{}", "No matches found.".dimmed());
@@ -280,21 +281,20 @@ pub fn run(
                 let query = input;
                 last_query = Some(query.to_string());
 
-                let results = search_code(
-                    query,
-                    path,
-                    current_extensions.as_deref(),
-                    case_insensitive,
-                    fuzzy_mode,
-                    0.6,
-                    20,
-                    current_exclude.as_deref(),
-                    ranking_mode,
-                    false,
-                    semantic_mode,
-                    false,
-                    false,
-                )?;
+                let options = SearchOptions {
+                    extensions: current_extensions.clone(),
+                    ignore_case: case_insensitive,
+                    fuzzy: fuzzy_mode,
+                    fuzzy_threshold: 0.6,
+                    max_results: 20,
+                    exclude: current_exclude.clone(),
+                    rank: ranking_mode,
+                    cache: false,
+                    semantic: semantic_mode,
+                    benchmark: false,
+                    vs_grep: false,
+                };
+                let results = search_code(query, path, &options)?;
 
                 last_results = results.clone();
 

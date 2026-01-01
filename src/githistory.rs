@@ -2,7 +2,7 @@
 //!
 //! Provides search capabilities across git history.
 
-use git2::{Commit, DiffOptions, Repository, Revwalk};
+use git2::{Commit, DiffOptions, Repository};
 use serde::{Deserialize, Serialize};
 use std::path::Path;
 

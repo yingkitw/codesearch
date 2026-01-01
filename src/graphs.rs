@@ -4,10 +4,10 @@
 
 use crate::ast::{analyze_file, AstAnalysis};
 use crate::callgraph::{build_call_graph, CallGraph};
-use crate::cfg::{analyze_file_cfg, ControlFlowGraph};
-use crate::depgraph::{build_dependency_graph, DependencyGraph};
-use crate::dfg::{analyze_file_dfg, DataFlowGraph};
-use crate::pdg::{analyze_file_pdg, ProgramDependencyGraph};
+use crate::cfg::analyze_file_cfg;
+use crate::depgraph::build_dependency_graph;
+use crate::dfg::analyze_file_dfg;
+use crate::pdg::analyze_file_pdg;
 use serde::{Deserialize, Serialize};
 use std::path::Path;
 

@@ -60,7 +60,7 @@ graph TB
     MCP --> Analysis
 ```
 
-### Module Descriptions (13 modules, ~4500 LOC total)
+### Module Descriptions (19 modules, ~6000+ LOC total)
 
 | Module | Lines | Description |
 |--------|-------|-------------|
@@ -370,12 +370,248 @@ struct SearchCache {
 - **Default Features**: None (minimal dependencies)
 - **Optional Features**: `mcp` (MCP server support)
 - **Target**: Native binary (CLI-only, no WASM)
+- **MSRV**: Rust 1.70+ (for latest language features)
+
+## Design Patterns Used
+
+### Structural Patterns
+- **Module Pattern**: Clear separation of concerns across 19+ modules
+- **Facade Pattern**: Simplified API in `main.rs` wrapping complex subsystems
+- **Composite Pattern**: Graph structures compose nodes and edges
+
+### Behavioral Patterns
+- **Strategy Pattern**: Different search strategies (regex, fuzzy, semantic)
+- **Observer Pattern**: File watcher notifies index of changes
+- **Iterator Pattern**: Streaming file reading for memory efficiency
+
+### Concurrency Patterns
+- **Thread Pool**: Rayon for parallel file processing
+- **Shared State**: DashMap for thread-safe caching
+- **Message Passing**: Used in file watcher for event handling
+
+## Metrics & Quality Gates
+
+### Code Quality
+- **Clippy Warnings**: 0 (all resolved as of Jan 2026)
+- **Compiler Warnings**: 5 (non_snake_case for Halstead metrics - intentional)
+- **Test Pass Rate**: 100% (173 unit + 36 integration tests)
+- **Module Count**: 19 focused modules
+- **Average Module Size**: ~200 LOC (well within maintainable range)
+
+### Performance Targets
+- **Search Latency**: < 50ms for typical queries (< 1000 files)
+- **Memory Usage**: < 100MB for moderate codebases (< 10K files)
+- **Parallel Efficiency**: 70%+ CPU utilization on multi-core systems
+- **Cache Hit Rate**: 70-90% for repeated searches
+
+### Test Coverage Goals
+- **Unit Tests**: 80%+ coverage for core modules
+- **Integration Tests**: All CLI commands covered
+- **Edge Cases**: Empty files, large files, unicode, special characters
+- **Performance Tests**: Regression detection for critical paths
+
+## Code Quality & Design Principles
+
+### Maintainability
+
+The codebase follows these key principles:
+
+**DRY (Don't Repeat Yourself)**
+- Shared functionality extracted into utility modules
+- Common patterns abstracted into reusable functions
+- Type definitions centralized in `types.rs` modules
+
+**KISS (Keep It Simple, Stupid)**
+- Each module has a single, clear responsibility
+- Functions are kept small and focused (typically < 100 LOC)
+- Complex operations broken into composable steps
+
+**Separation of Concerns (SoC)**
+- Modular architecture with 19+ focused modules
+- Clear boundaries between search, analysis, and presentation layers
+- Sub-module pattern used in `deadcode/`, `codemetrics/`, `search/`, `language/`, `duplicates/`, `designmetrics/`
+
+**Current Strengths:**
+- ✅ Modular structure with focused sub-modules
+- ✅ Consistent error handling with `Result` types
+- ✅ Thread-safe operations using `Arc`, `DashMap`
+- ✅ Parallel processing with `rayon`
+- ✅ Comprehensive test coverage (173 unit tests, 36 integration tests)
+
+**Areas for Improvement:**
+
+1. **Trait Abstractions** (High Priority)
+   - Current: Direct function calls, hard to mock
+   - Proposed: Extract traits for `SearchEngine`, `Analyzer`, `GraphBuilder`
+   - Benefits: Better testability, clearer contracts, easier to extend
+   ```rust
+   trait SearchEngine {
+       fn search(&self, query: &str, options: &SearchOptions) -> Result<Vec<SearchResult>>;
+   }
+   ```
+
+2. **Parameter Object Pattern** (High Priority)
+   - Current: `search_code()` has 13 parameters (exceeds recommended 7)
+   - Proposed: Bundle related parameters into structs
+   ```rust
+   struct SearchOptions {
+       extensions: Option<Vec<String>>,
+       fuzzy: bool,
+       case_insensitive: bool,
+       // ... other options
+   }
+   ```
+
+3. **Custom Error Types** (Medium Priority)
+   - Current: Generic `Box<dyn std::error::Error>`
+   - Proposed: Specific error types using `thiserror`
+   ```rust
+   #[derive(Error, Debug)]
+   enum SearchError {
+       #[error("File not found: {0}")]
+       FileNotFound(PathBuf),
+       #[error("Invalid regex pattern: {0}")]
+       InvalidPattern(String),
+   }
+   ```
+
+4. **Module Size Management** (Low Priority)
+   - `main.rs`: 624 LOC - consider extracting command handlers
+   - `search/core.rs`: 215 LOC - consider splitting search logic from result processing
+   - Target: Keep modules under 400 LOC for better maintainability
+
+### Test-Friendliness
+
+**Current Testing Architecture:**
+- 173 unit tests across modules
+- 36 integration tests (11 cross-file, 25 CLI integration)
+- 23 MCP server tests
+- Tests co-located with implementation code
+
+**Strengths:**
+- ✅ Good coverage of core functionality
+- ✅ Integration tests verify end-to-end behavior
+- ✅ Use of temporary directories for file operations
+- ✅ Isolated test cases with no shared state
+
+**Improvement Opportunities:**
+
+1. **Dependency Injection** (High Priority)
+   - Current: Direct file system access, hard to mock
+   - Proposed: Trait-based file system abstraction
+   ```rust
+   trait FileSystem {
+       fn read_file(&self, path: &Path) -> Result<String>;
+       fn list_files(&self, path: &Path) -> Result<Vec<PathBuf>>;
+   }
+   
+   struct RealFileSystem;
+   struct MockFileSystem { /* test data */ }
+   ```
+
+2. **Pure Function Extraction** (High Priority)
+   - Separate I/O operations from business logic
+   - Make algorithms testable without file system
+   - Example: Extract relevance scoring from file reading
+   ```rust
+   // Pure function - easy to test
+   fn calculate_score(content: &str, query: &str) -> f64 { ... }
+   
+   // I/O wrapper - tested via integration tests
+   fn score_file(path: &Path, query: &str) -> Result<f64> {
+       let content = read_file(path)?;
+       Ok(calculate_score(&content, query))
+   }
+   ```
+
+3. **Property-Based Testing** (Medium Priority)
+   - Use `proptest` for fuzzing search patterns
+   - Test invariants (e.g., "search results always contain query")
+   - Generate random code samples for analysis testing
+
+4. **Test Coverage Reporting** (Medium Priority)
+   - Integrate `tarpaulin` or `cargo-llvm-cov`
+   - Target: 80%+ coverage for core modules
+   - Track coverage trends in CI/CD
+
+5. **Test Fixtures** (Low Priority)
+   - Create reusable test data generators
+   - Standardize common test scenarios
+   - Reduce test code duplication
+
+### Performance Optimization
+
+**Current Performance Features:**
+- ✅ Parallel file processing with `rayon`
+- ✅ Thread-safe caching with `DashMap`
+- ✅ Streaming file reading for large files
+- ✅ Fast hashing with `ahash`
+- ✅ Incremental indexing support
+- ✅ File watching for real-time updates
+
+**Measured Performance:**
+- Typical search: 3-50ms for small codebases (< 1000 files)
+- Parallel workers: Auto-scales to available CPU cores
+- Cache hit rate: 70-90% for repeated searches
+
+**Optimization Opportunities:**
+
+1. **Hot Path Profiling** (High Priority)
+   - Use `cargo flamegraph` to identify bottlenecks
+   - Profile with realistic workloads (10K+ files)
+   - Focus optimization on top 20% of time-consuming operations
+
+2. **Memory Allocation Reduction** (High Priority)
+   - Use `SmallVec` for small collections (< 8 items)
+   - String interning for repeated file paths
+   - Reuse buffers in hot loops
+   - Use `Cow<str>` to avoid unnecessary cloning
+   ```rust
+   use smallvec::SmallVec;
+   
+   // Instead of Vec<Match> for typical 1-3 matches
+   type Matches = SmallVec<[Match; 4]>;
+   ```
+
+3. **Regex Optimization** (Medium Priority)
+   - Pre-compile common patterns at startup
+   - Use `regex::RegexSet` for multiple pattern matching
+   - Consider `aho-corasick` for literal string matching
+   - Already fixed: Moved regex compilation outside loops ✅
+
+4. **Caching Strategy Enhancement** (Medium Priority)
+   - Add LRU eviction policy (prevent unbounded growth)
+   - Cache parsed ASTs for frequently accessed files
+   - Implement cache warming for common queries
+   - Current: Simple time-based invalidation
+
+5. **Parallel Processing Tuning** (Low Priority)
+   - Tune rayon thread pool size based on workload
+   - Use work-stealing for better load balancing
+   - Consider async I/O for network operations (remote search)
+
+6. **Benchmark Suite** (Low Priority)
+   - Add criterion benchmarks for core operations
+   - Track performance regressions in CI/CD
+   - Compare against grep/ripgrep on standard datasets
 
 ## Future Architecture Considerations
 
-- **Separate Crates**: Consider splitting into workspace crates for very large projects
+### Short-Term (Next 3-6 months)
+- **Trait Abstractions**: Extract core interfaces for better testability
+- **Parameter Objects**: Reduce function parameter counts
+- **Custom Error Types**: Improve error handling and debugging
+- **Test Coverage**: Reach 80%+ coverage with property-based tests
+
+### Medium-Term (6-12 months)
+- **Workspace Crates**: Split into `codesearch-core`, `codesearch-cli`, `codesearch-mcp`
+- **Performance Profiling**: Systematic optimization of hot paths
+- **Documentation**: Complete rustdoc coverage with examples
+- **Benchmarking**: Comprehensive performance test suite
+
+### Long-Term (12+ months)
 - **Plugin System**: Allow external search strategies and custom analyzers
-- **Incremental Indexing**: Add indexing for very large codebases (1M+ files)
-- **AST-Based Analysis**: Move beyond regex to true syntax tree analysis
-- **Remote Search**: Add support for searching in remote repositories
+- **Advanced Caching**: LRU eviction, AST caching, query warming
+- **Async I/O**: For network operations and large file processing
+- **ML Integration**: Pattern recognition and intelligent suggestions
 

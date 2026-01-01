@@ -70,22 +70,23 @@ impl RemoteSearcher {
         extensions: Option<&[String]>,
     ) -> Result<Vec<RemoteSearchResult>, Box<dyn std::error::Error>> {
         use crate::search::search_code;
+        use crate::types::SearchOptions;
         
-        let search_results = search_code(
-            pattern,
-            path,
-            extensions,
-            false,
-            false,
-            0.6,
-            100,
-            Some(&["target".to_string(), "node_modules".to_string(), ".git".to_string()]),
-            false,
-            false,
-            false,
-            false,
-            false,
-        )?;
+        let options = SearchOptions {
+            extensions: extensions.map(|e| e.to_vec()),
+            ignore_case: false,
+            fuzzy: false,
+            fuzzy_threshold: 0.6,
+            max_results: 100,
+            exclude: Some(vec!["target".to_string(), "node_modules".to_string(), ".git".to_string()]),
+            rank: false,
+            cache: false,
+            semantic: false,
+            benchmark: false,
+            vs_grep: false,
+        };
+        
+        let search_results = search_code(pattern, path, &options)?;
 
         let mut results = Vec::new();
         for result in search_results {
@@ -107,22 +108,21 @@ impl RemoteSearcher {
         language: Option<&str>,
         max_results: usize,
     ) -> Result<Vec<RemoteSearchResult>, Box<dyn std::error::Error>> {
-        let mut search_query = query.to_string();
-        
+        let mut url = format!(
+            "https://api.github.com/search/code?q={}",
+            urlencoding::encode(query)
+        );
+
         if let Some(lang) = language {
-            search_query.push_str(&format!(" language:{}", lang));
+            url.push_str(&format!(" language:{}", lang));
         }
 
-        let url = format!(
-            "https://api.github.com/search/code?q={}&per_page={}",
-            urlencoding::encode(&search_query),
-            max_results.min(100)
-        );
+        url.push_str(&format!("&per_page={}", max_results.min(100)));
 
         let mut request = self.client.get(&url);
         
         if let Some(token) = &self.api_token {
-            request = request.header("Authorization", format!("token {}", token));
+            request = request.header("Authorization", format!("token {token}"));
         }
 
         let response = request.send()?;
@@ -162,7 +162,7 @@ impl RemoteSearcher {
         max_results: usize,
     ) -> Result<Vec<RemoteSearchResult>, Box<dyn std::error::Error>> {
         let base_url = if let Some(id) = project_id {
-            format!("https://gitlab.com/api/v4/projects/{}/search", id)
+            format!("https://gitlab.com/api/v4/projects/{id}/search")
         } else {
             "https://gitlab.com/api/v4/search".to_string()
         };
@@ -199,7 +199,7 @@ impl RemoteSearcher {
                     file_path: path.to_string(),
                     line_number: 0,
                     content: data.to_string(),
-                    url: format!("https://gitlab.com/{}", path),
+                    url: format!("https://gitlab.com/{path}"),
                 });
             }
         }
@@ -208,12 +208,12 @@ impl RemoteSearcher {
     }
 
     pub fn get_repository_info(&self, owner: &str, repo: &str) -> Result<RepositoryInfo, Box<dyn std::error::Error>> {
-        let url = format!("https://api.github.com/repos/{}/{}", owner, repo);
+        let url = format!("https://api.github.com/repos/{owner}/{repo}");
         
         let mut request = self.client.get(&url);
         
         if let Some(token) = &self.api_token {
-            request = request.header("Authorization", format!("token {}", token));
+            request = request.header("Authorization", format!("token {token}"));
         }
 
         let response = request.send()?;
@@ -245,7 +245,7 @@ impl RemoteSearcher {
         for repo_url in repos {
             match self.clone_and_search(repo_url, pattern, extensions) {
                 Ok(results) => all_results.extend(results),
-                Err(e) => eprintln!("Error searching {}: {}", repo_url, e),
+                Err(e) => eprintln!("Error searching {repo_url}: {e}"),
             }
         }
 

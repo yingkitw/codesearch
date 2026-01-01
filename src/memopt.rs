@@ -4,7 +4,7 @@
 
 use memmap2::Mmap;
 use std::fs::File;
-use std::io::{BufRead, BufReader};
+use std::io::BufReader;
 use std::path::Path;
 
 const LARGE_FILE_THRESHOLD: u64 = 10 * 1024 * 1024; // 10 MB

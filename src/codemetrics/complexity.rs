@@ -32,7 +32,9 @@ impl HalsteadMetrics {
     pub fn calculate(operators: &HashMap<String, usize>, operands: &HashMap<String, usize>) -> Self {
         let n1 = operators.len();
         let n2 = operands.len();
+        #[allow(non_snake_case)]
         let N1: usize = operators.values().sum();
+        #[allow(non_snake_case)]
         let N2: usize = operands.values().sum();
         
         let vocabulary = n1 + n2;

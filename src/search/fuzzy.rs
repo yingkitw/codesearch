@@ -68,32 +68,29 @@ pub fn search_in_file_parallel(
                     });
                 }
             }
-        } else {
-            for mat in regex.find_iter(&line) {
-                let (score_val, relevance) = if rank {
-                    let s = calculate_relevance_score(&line, query, line_count, file_path, false, None);
-                    let r = if s >= 80.0 { "Very High" } else if s >= 60.0 { "High" } else if s >= 40.0 { "Medium" } else { "Low" };
-                    (s, r.to_string())
-                } else {
-                    (50.0, "Medium".to_string())
-                };
+        } else if let Some(mat) = regex.find_iter(&line).next() {
+            let (score_val, relevance) = if rank {
+                let s = calculate_relevance_score(&line, query, line_count, file_path, false, None);
+                let r = if s >= 80.0 { "Very High" } else if s >= 60.0 { "High" } else if s >= 40.0 { "Medium" } else { "Low" };
+                (s, r.to_string())
+            } else {
+                (50.0, "Medium".to_string())
+            };
 
-                let matches = vec![Match {
-                    start: mat.start(),
-                    end: mat.end(),
-                    text: mat.as_str().to_string(),
-                }];
+            let matches = vec![Match {
+                start: mat.start(),
+                end: mat.end(),
+                text: mat.as_str().to_string(),
+            }];
 
-                results.push(SearchResult {
-                    file: file_path.to_string_lossy().to_string(),
-                    line_number: line_count,
-                    content: line.clone(),
-                    matches,
-                    score: score_val,
-                    relevance,
-                });
-                break;
-            }
+            results.push(SearchResult {
+                file: file_path.to_string_lossy().to_string(),
+                line_number: line_count,
+                content: line.clone(),
+                matches,
+                score: score_val,
+                relevance,
+            });
         }
     }
 
@@ -139,5 +136,5 @@ pub fn calculate_relevance_score(
         }
     }
 
-    score.min(100.0).max(0.0)
+    score.clamp(0.0, 100.0)
 }

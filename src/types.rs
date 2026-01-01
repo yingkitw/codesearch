@@ -54,6 +54,108 @@ pub struct ComplexityMetrics {
     pub max_nesting_depth: u32,
 }
 
+/// Search options to bundle related parameters
+#[derive(Debug, Clone)]
+pub struct SearchOptions {
+    pub extensions: Option<Vec<String>>,
+    pub ignore_case: bool,
+    pub fuzzy: bool,
+    pub fuzzy_threshold: f64,
+    pub max_results: usize,
+    pub exclude: Option<Vec<String>>,
+    pub rank: bool,
+    pub cache: bool,
+    pub semantic: bool,
+    pub benchmark: bool,
+    pub vs_grep: bool,
+}
+
+impl Default for SearchOptions {
+    fn default() -> Self {
+        Self {
+            extensions: None,
+            ignore_case: false,
+            fuzzy: false,
+            fuzzy_threshold: 0.8,
+            max_results: 100,
+            exclude: None,
+            rank: false,
+            cache: false,
+            semantic: false,
+            benchmark: false,
+            vs_grep: false,
+        }
+    }
+}
+
+impl SearchOptions {
+    /// Builder pattern: set extensions
+    pub fn with_extensions(mut self, extensions: Vec<String>) -> Self {
+        self.extensions = Some(extensions);
+        self
+    }
+
+    /// Builder pattern: set ignore_case
+    pub fn with_ignore_case(mut self, ignore_case: bool) -> Self {
+        self.ignore_case = ignore_case;
+        self
+    }
+
+    /// Builder pattern: set fuzzy
+    pub fn with_fuzzy(mut self, fuzzy: bool) -> Self {
+        self.fuzzy = fuzzy;
+        self
+    }
+
+    /// Builder pattern: set fuzzy_threshold
+    pub fn with_fuzzy_threshold(mut self, threshold: f64) -> Self {
+        self.fuzzy_threshold = threshold;
+        self
+    }
+
+    /// Builder pattern: set max_results
+    pub fn with_max_results(mut self, max: usize) -> Self {
+        self.max_results = max;
+        self
+    }
+
+    /// Builder pattern: set exclude
+    pub fn with_exclude(mut self, exclude: Vec<String>) -> Self {
+        self.exclude = Some(exclude);
+        self
+    }
+
+    /// Builder pattern: set rank
+    pub fn with_rank(mut self, rank: bool) -> Self {
+        self.rank = rank;
+        self
+    }
+
+    /// Builder pattern: set cache
+    pub fn with_cache(mut self, cache: bool) -> Self {
+        self.cache = cache;
+        self
+    }
+
+    /// Builder pattern: set semantic
+    pub fn with_semantic(mut self, semantic: bool) -> Self {
+        self.semantic = semantic;
+        self
+    }
+
+    /// Builder pattern: set benchmark
+    pub fn with_benchmark(mut self, benchmark: bool) -> Self {
+        self.benchmark = benchmark;
+        self
+    }
+
+    /// Builder pattern: set vs_grep
+    pub fn with_vs_grep(mut self, vs_grep: bool) -> Self {
+        self.vs_grep = vs_grep;
+        self
+    }
+}
+
 /// Search performance metrics
 #[derive(Debug, Clone)]
 #[allow(dead_code)]

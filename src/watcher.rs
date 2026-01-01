@@ -46,7 +46,7 @@ impl FileWatcher {
                 Ok(event) => {
                     self.handle_event(event, &index, &extensions)?;
                 }
-                Err(e) => eprintln!("Watch error: {:?}", e),
+                Err(e) => eprintln!("Watch error: {e:?}"),
             }
         }
         Ok(())

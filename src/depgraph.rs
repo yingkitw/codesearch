@@ -3,7 +3,7 @@
 //! Provides dependency graph construction and analysis for codebases.
 
 use serde::{Deserialize, Serialize};
-use std::collections::{HashMap, HashSet, VecDeque};
+use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
 use walkdir::WalkDir;
 
@@ -311,7 +311,7 @@ fn extract_exports_from_content(content: &str, ext: &str) -> Vec<String> {
     exports
 }
 
-fn resolve_import(import: &str, current_file: &Path, all_files: &[PathBuf]) -> Option<String> {
+fn resolve_import(import: &str, _current_file: &Path, all_files: &[PathBuf]) -> Option<String> {
     for file in all_files {
         if let Some(stem) = file.file_stem().and_then(|s| s.to_str()) {
             if import.contains(stem) {

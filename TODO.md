@@ -72,6 +72,15 @@
   - Lack of Cohesion in Methods (LCOM)
 - [x] Add CLI command for comprehensive metrics
 - [x] Add 4 unit tests for code metrics
+- [x] Code quality improvements (Jan 2026):
+  - Fixed 100+ clippy warnings across the codebase
+  - Removed useless comparisons in tests (>= 0 for unsigned types)
+  - Converted to inline format args for better readability
+  - Fixed never-looping for loops to use if-let patterns
+  - Replaced manual min/max with clamp() function
+  - Removed unused imports (VecDeque, Revwalk, graph types)
+  - Moved regex compilation outside loops for performance
+  - Improved code consistency and maintainability
 
 ## 🔄 In Progress
 
@@ -79,10 +88,130 @@
 
 ## 📋 Planned
 
-### Performance Improvements
+### Maintainability Improvements (High Priority)
+- [x] **Extract trait abstractions for core components** ✅ (Jan 2026)
+  - ✅ Created `SearchEngine` trait for different search strategies
+  - ✅ Created `Analyzer` trait for different analysis types
+  - ✅ Created `GraphBuilder` trait for graph construction
+  - ✅ Implemented `DefaultSearchEngine` wrapping existing search_code
+  - ✅ Added comprehensive documentation with examples
+  - ✅ Included mock implementations for testing
+  - Benefits: Better testability, easier to mock, clearer contracts
+
+- [x] **Reduce function parameter counts** ✅ (Jan 2026)
+  - ~~`search_code()` has 13 parameters (limit: 7)~~
+  - ✅ Introduced `SearchOptions` struct to bundle related parameters
+  - ✅ Applied builder pattern with `with_*` methods
+  - ✅ Reduced `search_code()` from 13 parameters to 3 parameters
+  - ✅ Updated all 15+ call sites across the codebase
+  - ✅ All 173 tests pass
+
+- [x] **Split large modules into focused sub-modules** ✅ (Jan 2026)
+  - ✅ Extracted command handlers from `main.rs` into `commands/` module
+  - ✅ Created 3 sub-modules: `search.rs`, `analysis.rs`, `graph.rs`
+  - ✅ Reduced main.rs complexity by moving 200+ LOC to handlers
+  - ✅ Added comprehensive documentation to all handlers
+  - ✅ Included tests for each command handler
+  - Pattern: Follows `deadcode/`, `codemetrics/`, `search/` module structure
+
+- [x] **Improve error handling consistency** ✅ (Jan 2026)
+  - ✅ Defined custom error types using `thiserror`
+  - ✅ Created 4 error enums: `SearchError`, `AnalysisError`, `GraphError`, `RemoteError`
+  - ✅ Added 8+ specific error variants per type
+  - ✅ Implemented error source chains for debugging
+  - ✅ Added automatic conversions from common error types
+  - ✅ Created comprehensive example in `examples/error_handling.rs`
+  - ✅ Documented error handling patterns with 5 examples
+  - Note: Full migration to custom errors is gradual (backward compatible)
+
+- [x] **Add documentation for public APIs** ✅ (Jan 2026)
+  - ✅ Added comprehensive rustdoc to all command handlers
+  - ✅ Documented FileSystem trait with usage examples
+  - ✅ Added module-level documentation to commands/
+  - ✅ Included examples in all public function docs
+  - ✅ Ready for `cargo doc` generation
+  - Note: Ongoing - will continue adding docs to remaining modules
+
+### Test-Friendliness Improvements (High Priority)
+- [x] **Introduce dependency injection** ✅ (Jan 2026)
+  - ✅ Created `FileSystem` trait with 10 operations
+  - ✅ Implemented `RealFileSystem` for production use
+  - ✅ Implemented `MockFileSystem` for testing (in-memory)
+  - ✅ All traits are `Send + Sync` for thread safety
+  - ✅ Added comprehensive documentation and examples
+  - ✅ Included 5 tests demonstrating mock usage
+
+- [x] **Extract testable pure functions** ✅ (Jan 2026)
+  - ✅ Created `search/pure.rs` module with pure functions
+  - ✅ Extracted `calculate_relevance_score_pure` (no I/O)
+  - ✅ Added `relevance_category`, `fuzzy_match_quality`, `should_include_line`
+  - ✅ All functions are independently testable
+  - ✅ Included 8 unit tests for pure functions
+
+- [x] **Add property-based testing** ✅ (Jan 2026)
+  - ✅ Added `proptest` dependency to Cargo.toml
+  - ✅ Created `tests/proptest_search.rs` with 7 property tests
+  - ✅ Tests verify: no panics, query in results, max results respected
+  - ✅ Tests cover: fuzzy threshold, extension filters, empty queries
+  - ✅ Generates random inputs to find edge cases
+
+- [x] **Improve test isolation** ✅ (Jan 2026)
+  - ✅ Created `tests/fixtures/mod.rs` with reusable fixtures
+  - ✅ Implemented `TestWorkspace` for temporary test directories
+  - ✅ Added sample code snippets (Rust, Python, JavaScript)
+  - ✅ All tests use `tempfile` for isolation
+  - ✅ No shared state between tests
+  - ✅ Included 4 tests for fixture functionality
+
+- [x] **Add integration test coverage** ✅ (Jan 2026)
+  - ✅ Created `tests/integration_e2e.rs` with 15 end-to-end tests
+  - ✅ Tests cover: search→export, multi-extension, fuzzy matching
+  - ✅ Tests analyze→search workflow, complexity analysis
+  - ✅ Tests deadcode detection, ranking, exclusions
+  - ✅ Tests case sensitivity, nested directories, empty dirs
+  - ✅ All tests use fixtures for isolation
+
+- [x] **Add test coverage reporting** ✅ (Jan 2026)
+  - ✅ Added `tarpaulin` to dev-dependencies
+  - ✅ Created `tarpaulin.toml` configuration
+  - ✅ Set minimum coverage threshold at 70%
+  - ✅ Created GitHub Actions workflow for CI/CD
+  - ✅ Configured HTML, LCOV, and JSON output formats
+  - ✅ Excludes test files from coverage metrics
+
+### Performance Improvements (Medium Priority)
 - [x] Add incremental indexing for large codebases
 - [x] Implement file watching for real-time updates
 - [x] Optimize memory usage for very large files
+
+- [x] **Optimize hot paths** ✅ (Jan 2026)
+  - ✅ Added `criterion` for benchmarking
+  - ✅ Created `benches/search_benchmark.rs` with 6 benchmarks
+  - ✅ Benchmarks cover: small/medium searches, relevance scoring
+  - ✅ Benchmarks test fuzzy matching, pure functions
+  - ✅ Ready for profiling with `cargo bench`
+  - Note: Use `cargo flamegraph` for detailed profiling
+
+- [ ] **Improve parallel processing**
+  - Tune rayon thread pool size based on workload
+  - Use work-stealing for better load balancing
+  - Consider async I/O for network operations (remote search)
+
+- [x] **Enhance caching strategy** ✅ (Jan 2026)
+  - ✅ Implemented `LruCacheWrapper` in `cache_lru.rs`
+  - ✅ Thread-safe LRU cache with automatic eviction
+  - ✅ Prevents unbounded memory growth
+  - ✅ Configurable capacity
+  - ✅ Included 9 tests for LRU functionality
+  - ✅ Ready to replace simple cache in search module
+  - Pre-compile common patterns at startup
+  - Use `regex::RegexSet` for multiple pattern matching
+  - Consider using `aho-corasick` for literal string matching
+
+- [ ] **Reduce memory allocations**
+  - Use string interning for repeated strings (file paths)
+  - Reuse buffers in hot loops
+  - Use `Cow<str>` to avoid unnecessary cloning
 
 ### Features
 - [x] Add AST-based code analysis (beyond regex)
@@ -101,8 +230,9 @@
 - [ ] Add test coverage reporting
 
 ### Documentation
-- [ ] Add API documentation
+- [ ] Add API documentation (rustdoc)
 - [ ] Add more usage examples
+- [ ] Add architecture decision records (ADRs)
 
 ## 🐛 Known Issues
 
@@ -110,6 +240,18 @@
 
 ## 💡 Ideas for Future
 
+### Architecture Evolution
+- [ ] **Workspace crate structure** (for very large projects)
+  - Split into `codesearch-core`, `codesearch-cli`, `codesearch-mcp`
+  - Share common types via `codesearch-types` crate
+  - Benefits: Faster compilation, better modularity
+
+- [ ] **Plugin system**
+  - Allow external search strategies via dynamic loading
+  - Custom analyzers for domain-specific languages
+  - Third-party graph visualizers
+
+### Advanced Features
 - [ ] Machine learning-based code pattern recognition
 - [ ] Collaborative search patterns sharing
 - [ ] Code search as a service (web API)
@@ -117,4 +259,9 @@
 - [ ] Support for searching in binary files (with limits)
 - [ ] Add support for searching in database schemas
 - [ ] Add support for searching in configuration files
+
+### Quality Metrics
+- [ ] Track technical debt over time
+- [ ] Code health dashboard
+- [ ] Automated refactoring suggestions with diffs
 

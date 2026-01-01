@@ -12,18 +12,20 @@ mod edge_case_tests {
     #[test]
     fn test_empty_content() {
         let content = "";
-        // Empty content has base complexity of 1
-        assert!(calculate_cyclomatic_complexity(content) >= 0);
-        assert!(calculate_cognitive_complexity(content) >= 0);
+        let cyclomatic = calculate_cyclomatic_complexity(content);
+        let cognitive = calculate_cognitive_complexity(content);
+        assert!(cyclomatic >= 1);
+        assert_eq!(cognitive, 0);
         assert_eq!(calculate_nesting_depth(content), 0);
     }
 
     #[test]
     fn test_only_whitespace() {
         let content = "   \n\n   \t\t\n   ";
-        // Whitespace-only content has base complexity of 1
-        assert!(calculate_cyclomatic_complexity(content) >= 0);
-        assert!(calculate_cognitive_complexity(content) >= 0);
+        let cyclomatic = calculate_cyclomatic_complexity(content);
+        let cognitive = calculate_cognitive_complexity(content);
+        assert!(cyclomatic >= 1);
+        assert_eq!(cognitive, 0);
     }
 
     #[test]
@@ -34,9 +36,10 @@ mod edge_case_tests {
    comment */
 // Another comment
 "#;
-        // Comment-only content has base complexity of 1
-        assert!(calculate_cyclomatic_complexity(content) >= 0);
-        assert!(calculate_cognitive_complexity(content) >= 0);
+        let cyclomatic = calculate_cyclomatic_complexity(content);
+        let cognitive = calculate_cognitive_complexity(content);
+        assert!(cyclomatic >= 1);
+        assert_eq!(cognitive, 0);
     }
 
     #[test]
@@ -249,7 +252,7 @@ fn test() {
     fn test_very_long_function() {
         let mut content = String::from("fn test() {\n");
         for i in 0..100 {
-            content.push_str(&format!("    if condition_{} {{ }}\n", i));
+            content.push_str(&format!("    if condition_{i} {{ }}\n"));
         }
         content.push_str("}\n");
         
@@ -260,9 +263,8 @@ fn test() {
     #[test]
     fn test_file_complexity_empty_content() {
         let metrics = calculate_file_complexity("test.rs", "");
-        // Empty content has base complexity
-        assert!(metrics.cyclomatic_complexity >= 0);
-        assert!(metrics.cognitive_complexity >= 0);
+        assert!(metrics.cyclomatic_complexity >= 1);
+        assert_eq!(metrics.cognitive_complexity, 0);
     }
 
     #[test]
